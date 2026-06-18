@@ -13,6 +13,8 @@
   trigger:
     - platform: state
       entity_id: input_select.aerotermia_modo
+    - platform: homeassistant
+      event: start          # re-sincroniza modo (suelo + LG) tras reiniciar HA
   action:
     - choose:
         # ---- CALOR ----
