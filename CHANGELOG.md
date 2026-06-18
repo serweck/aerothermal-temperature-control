@@ -4,6 +4,13 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.2] - 2026-06-18
+
+### Cambiado
+- El **arco coloreado** ahora ocupa solo el tramo entre la **temperatura actual** (punto) y el
+  **objetivo** (bolita), simbolizando lo que falta para alcanzar el objetivo. Antes seguía hasta
+  el final del aro.
+
 ## [1.4.1] - 2026-06-18
 
 ### Cambiado

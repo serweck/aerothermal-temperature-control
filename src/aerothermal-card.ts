@@ -190,10 +190,13 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       current != null && !isNaN(curNum)
         ? Math.min(1, Math.max(0, (curNum - min) / (max - min)))
         : null;
+    const curAngle = curFrac != null ? ARC_START + curFrac * ARC_SWEEP : null;
     const curDot =
-      curFrac != null
-        ? polarToCartesian(100, 100, ARC_R, ARC_START + curFrac * ARC_SWEEP)
-        : null;
+      curAngle != null ? polarToCartesian(100, 100, ARC_R, curAngle) : null;
+    // El arco coloreado representa lo que FALTA: del objetivo (bolita) a la
+    // temperatura actual (punto). Sin sensor, rellena desde el inicio del aro.
+    const fillStart = curAngle != null ? Math.min(valueAngle, curAngle) : ARC_START;
+    const fillEnd = curAngle != null ? Math.max(valueAngle, curAngle) : valueAngle;
 
     // partes entera y decimal (estilo nativo: 22 grande + ,0 pequeno)
     const intPart = Math.trunc(liveTarget);
@@ -243,12 +246,12 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                   <path
                     class="glow"
                     style="stroke:${accent}"
-                    d=${arcPath(100, 100, ARC_R, valueAngle, ARC_END)}
+                    d=${arcPath(100, 100, ARC_R, fillStart, fillEnd)}
                   />
                   <path
                     class="value"
                     style="stroke:url(#${gradId})"
-                    d=${arcPath(100, 100, ARC_R, valueAngle, ARC_END)}
+                    d=${arcPath(100, 100, ARC_R, fillStart, fillEnd)}
                   />
                   ${curDot
                     ? svg`<circle
