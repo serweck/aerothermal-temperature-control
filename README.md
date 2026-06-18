@@ -56,6 +56,14 @@ Verifica que existan: `climate.suelo_radiante_calor`, `climate.suelo_radiante_fr
 
 ### 2. La tarjeta
 
+**Opción A — HACS (repositorio personalizado):**
+
+1. HACS → ⋮ → *Repositorios personalizados*.
+2. URL: `https://github.com/serweck/aerothermal-temperature-control` · Categoría: **Dashboard**.
+3. Instálalo desde HACS. El recurso Lovelace se registra solo; recarga el navegador (Ctrl+F5).
+
+**Opción B — Manual:**
+
 1. Copia `dist/aerothermal-temperature-control.js` a `config/www/` de tu HA
    (p. ej. `config/www/aerothermal-temperature-control.js`).
 2. Añádelo como recurso (Ajustes → Paneles → ⋮ → Recursos, o en YAML):
