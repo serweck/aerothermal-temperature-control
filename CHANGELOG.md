@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.1] - 2026-06-18
+
+### Cambiado
+- El cambio de temperatura ahora **solo se activa al agarrar la bolita (tirador)**, no en el resto
+  del aro. Pulsar en cualquier otro punto del dial ya no modifica nada.
+
 ## [1.4.0] - 2026-06-18
 
 ### Añadido

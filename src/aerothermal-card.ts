@@ -463,26 +463,19 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   // --- arrastre del dial ---
   private _onPointerDown(e: PointerEvent): void {
     if (this.isOff) return;
-    // Solo actuar si se pulsa sobre el aro (no en el centro del circulo).
-    const f = this._pointerRadiusFraction(e);
-    if (f == null || f < 0.55 || f > 1.12) return;
+    // Solo arrastrar si se agarra la bolita (tirador), no el resto del dial.
+    const handle = this.renderRoot.querySelector(".handle") as SVGElement | null;
+    if (!handle) return;
+    const r = handle.getBoundingClientRect();
+    const dist = Math.hypot(
+      e.clientX - (r.left + r.width / 2),
+      e.clientY - (r.top + r.height / 2)
+    );
+    if (dist > Math.max(26, r.width)) return; // margen de agarre (tactil)
     e.preventDefault();
     this._dragging = true;
-    this._updateFromPointer(e);
     window.addEventListener("pointermove", this._boundMove);
     window.addEventListener("pointerup", this._boundUp);
-  }
-  // Distancia del puntero al centro, como fraccion del radio del SVG
-  // (~0 centro, ~0.8 sobre el aro, ~1 borde).
-  private _pointerRadiusFraction(e: PointerEvent): number | null {
-    const svg = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    const half = rect.width / 2;
-    if (half <= 0) return null;
-    const dx = e.clientX - (rect.left + half);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    return Math.hypot(dx, dy) / half;
   }
   private _openMoreInfo(entityId?: string): void {
     if (!entityId || !this.hass?.states[entityId]) return;
@@ -568,7 +561,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       width: 100%;
       height: 100%;
       touch-action: none;
-      cursor: pointer;
+      cursor: default;
     }
     .dial.off {
       cursor: default;
