@@ -1,4 +1,4 @@
-import { LitElement, html, css, TemplateResult, nothing, PropertyValues } from "lit";
+import { LitElement, html, svg, css, TemplateResult, nothing, PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   HomeAssistant,
@@ -212,11 +212,11 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 <defs>
               <linearGradient id=${gradId} x1="0" y1="0" x2="1" y2="1">
                 ${this.modeState === MODE_OPTION.cool
-                  ? html`<stop offset="0%" stop-color="#5cc6ff" /><stop
+                  ? svg`<stop offset="0%" stop-color="#5cc6ff" /><stop
                         offset="100%"
                         stop-color="#1f7fd6"
                       />`
-                  : html`<stop offset="0%" stop-color="#ffb454" /><stop
+                  : svg`<stop offset="0%" stop-color="#ffb454" /><stop
                         offset="100%"
                         stop-color="#e8730a"
                       />`}
@@ -225,7 +225,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
             <path class="track" d=${arcPath(100, 100, ARC_R, ARC_START, ARC_END)} />
             ${this.isOff
               ? nothing
-              : html`
+              : svg`
                   <!-- glow difuminado detras del aro -->
                   <path
                     class="glow"
@@ -238,7 +238,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                     d=${arcPath(100, 100, ARC_R, valueAngle, ARC_END)}
                   />
                   ${curDot
-                    ? html`<circle
+                    ? svg`<circle
                         class="curdot"
                         cx=${curDot.x}
                         cy=${curDot.y}

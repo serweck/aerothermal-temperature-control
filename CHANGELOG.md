@@ -4,6 +4,14 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.2.1] - 2026-06-18
+
+### Corregido
+- **No se veían el aro de color, el degradado, el tirador ni el punto de temperatura actual**
+  (solo el track gris). Causa: los fragmentos SVG interpolados (aro, tirador, punto y los
+  `<stop>` del degradado) se construían con el tag `html` de lit, que los crea en namespace
+  HTML y no se pintan dentro del `<svg>`. Ahora usan el tag `svg` de lit (namespace correcto).
+
 ## [1.2.0] - 2026-06-18
 
 ### Cambiado
