@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.1.1] - 2026-06-18
+
+### Cambiado
+- Color de calor a **naranja nativo** de HA (`--state-climate-heat-color`) y frío a azul nativo
+  (`--state-climate-cool-color`), en lugar del rojo, para alinearse con el termostato nativo.
+
 ## [1.1.0] - 2026-06-18
 
 ### Añadido

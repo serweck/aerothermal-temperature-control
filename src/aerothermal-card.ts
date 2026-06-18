@@ -140,8 +140,10 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
   private get accentColor(): string {
     if (this.isOff) return "var(--disabled-text-color, #6f6f6f)";
-    // Azul en frio, rojo en calor (como el termostato nativo)
-    return this.modeState === MODE_OPTION.cool ? "#2196f3" : "#e53935";
+    // Colores nativos de HA: azul en frio, naranja en calor
+    return this.modeState === MODE_OPTION.cool
+      ? "var(--state-climate-cool-color, #2b9af9)"
+      : "var(--state-climate-heat-color, #ff8100)";
   }
 
   protected render(): TemplateResult | typeof nothing {
