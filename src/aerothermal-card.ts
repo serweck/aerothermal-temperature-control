@@ -5,6 +5,7 @@ import {
   LovelaceCard,
   LovelaceCardConfig,
   LovelaceCardEditor,
+  fireEvent,
 } from "custom-card-helpers";
 import { AerothermalCardConfig, MODE_OPTION, PresetItem } from "./types";
 
@@ -279,7 +280,14 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                     >`}
             </div>
             ${current != null
-              ? html`<div class="current">
+              ? html`<div
+                  class="current clickable"
+                  title="Ver histórico"
+                  @click=${() =>
+                    this._openMoreInfo(
+                      this.config.current_sensor || this.activeThermostatId
+                    )}
+                >
                   <ha-icon icon="mdi:thermometer"></ha-icon>
                   ${String(current).replace(".", ",")} °C
                 </div>`
@@ -348,7 +356,13 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
         <div class="row">
           <span class="label">Impulsion / inercia</span>
           <div class="row-right">
-            <span class="value-num">${inertia != null ? inertia : "--"} °C</span>
+            <span
+              class="value-num clickable"
+              title="Ver histórico"
+              @click=${() =>
+                this._openMoreInfo(this.config.inertia_sensor || this.config.water_climate)}
+              >${inertia != null ? inertia : "--"} °C</span
+            >
             <span class="chip ${lgActive ? "on" : ""}">
               <ha-icon icon="mdi:heat-pump-outline"></ha-icon>
               ${lgActive ? "activo" : "reposo"}
@@ -449,11 +463,30 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   // --- arrastre del dial ---
   private _onPointerDown(e: PointerEvent): void {
     if (this.isOff) return;
+    // Solo actuar si se pulsa sobre el aro (no en el centro del circulo).
+    const f = this._pointerRadiusFraction(e);
+    if (f == null || f < 0.55 || f > 1.12) return;
     e.preventDefault();
     this._dragging = true;
     this._updateFromPointer(e);
     window.addEventListener("pointermove", this._boundMove);
     window.addEventListener("pointerup", this._boundUp);
+  }
+  // Distancia del puntero al centro, como fraccion del radio del SVG
+  // (~0 centro, ~0.8 sobre el aro, ~1 borde).
+  private _pointerRadiusFraction(e: PointerEvent): number | null {
+    const svg = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const half = rect.width / 2;
+    if (half <= 0) return null;
+    const dx = e.clientX - (rect.left + half);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    return Math.hypot(dx, dy) / half;
+  }
+  private _openMoreInfo(entityId?: string): void {
+    if (!entityId || !this.hass?.states[entityId]) return;
+    fireEvent(this, "hass-more-info", { entityId });
   }
   private _onPointerMove(e: PointerEvent): void {
     if (this._dragging) this._updateFromPointer(e);
@@ -621,6 +654,18 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     }
     .current ha-icon {
       --mdc-icon-size: 16px;
+    }
+    .clickable {
+      cursor: pointer;
+    }
+    .current.clickable {
+      pointer-events: auto;
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+    .current.clickable:hover,
+    .value-num.clickable:hover {
+      opacity: 0.7;
     }
     .adjust {
       display: flex;

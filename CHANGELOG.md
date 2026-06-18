@@ -4,6 +4,16 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.0] - 2026-06-18
+
+### Añadido
+- Click en la **temperatura real** del dial y en la **impulsión/inercia** del bloque LG abre el
+  **histórico** (more-info) del sensor correspondiente.
+
+### Cambiado
+- El dial **solo cambia la temperatura al pulsar/arrastrar sobre el aro**, no en el centro del
+  círculo (evita cambios accidentales al tocar el número).
+
 ## [1.3.0] - 2026-06-18
 
 ### Añadido
