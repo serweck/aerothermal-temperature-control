@@ -1,0 +1,35 @@
+{
+  "name": "aerothermal-temperature-control",
+  "version": "1.0.0",
+  "description": "Tarjeta Lovelace para control de aerotermia (suelo radiante + impulsion) en Home Assistant",
+  "type": "module",
+  "main": "dist/aerothermal-temperature-control.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "custom-card",
+    "aerotermia",
+    "climate",
+    "thermostat"
+  ],
+  "author": "Serweck",
+  "license": "MIT",
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.1.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.13.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
+}

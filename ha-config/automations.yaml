@@ -1,0 +1,87 @@
+# =====================================================================
+#  Aerotermia - Automatizaciones (la logica vive en el servidor)
+#  Pegar en automations.yaml o crear via UI (modo YAML).
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# A) Conmutacion de modo + sincronia con el LG + exclusion del rele.
+#    Solo UNO de los dos termostatos controla la bomba en cada momento.
+# ---------------------------------------------------------------------
+- id: aerotermia_conmutacion_modo
+  alias: "Aerotermia - Conmutacion de modo (suelo + LG)"
+  mode: queued
+  trigger:
+    - platform: state
+      entity_id: input_select.aerotermia_modo
+  action:
+    - choose:
+        # ---- CALOR ----
+        - conditions:
+            - condition: state
+              entity_id: input_select.aerotermia_modo
+              state: calor
+          sequence:
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.suelo_radiante_frio }
+              data: { hvac_mode: "off" }
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.suelo_radiante_calor }
+              data: { hvac_mode: heat }
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
+              data: { hvac_mode: heat }
+        # ---- FRIO ----
+        - conditions:
+            - condition: state
+              entity_id: input_select.aerotermia_modo
+              state: frio
+          sequence:
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.suelo_radiante_calor }
+              data: { hvac_mode: "off" }
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.suelo_radiante_frio }
+              data: { hvac_mode: cool }
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
+              data: { hvac_mode: cool }
+      # ---- OFF (default) ----
+      default:
+        - service: climate.set_hvac_mode
+          target:
+            entity_id:
+              - climate.suelo_radiante_calor
+              - climate.suelo_radiante_frio
+          data: { hvac_mode: "off" }
+        - service: climate.set_hvac_mode
+          target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
+          data: { hvac_mode: "off" }
+        - service: switch.turn_off
+          target: { entity_id: switch.socket_garaje_aerotermia_bomba }
+
+# ---------------------------------------------------------------------
+# B) Seguridad: si el motor LG se apaga o falla, apaga la bomba y los
+#    termostatos. No tiene sentido mover agua sin generacion.
+# ---------------------------------------------------------------------
+- id: aerotermia_seguridad_motor
+  alias: "Aerotermia - Seguridad: motor apagado apaga bomba"
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      to:
+        - "off"
+        - "unavailable"
+      for: { seconds: 30 }
+  action:
+    - service: climate.set_hvac_mode
+      target:
+        entity_id:
+          - climate.suelo_radiante_calor
+          - climate.suelo_radiante_frio
+      data: { hvac_mode: "off" }
+    - service: switch.turn_off
+      target: { entity_id: switch.socket_garaje_aerotermia_bomba }
+    - service: input_select.select_option
+      target: { entity_id: input_select.aerotermia_modo }
+      data: { option: "off" }
