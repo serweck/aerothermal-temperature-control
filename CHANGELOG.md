@@ -4,6 +4,15 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.1.2] - 2026-06-18
+
+### Corregido
+- **El dial no se podía arrastrar**: el overlay central (`.dial-center`) capturaba el puntero e
+  impedía que llegara al aro SVG. Ahora `pointer-events: none` en el overlay (y `auto` solo en los
+  botones +/−), de modo que el arrastre funciona en todo el aro.
+- **Color del aro**: se aplica directo (`stroke` inline) en lugar de depender de la variable CSS
+  heredada, para que el aro y el tirador se vean siempre coloreados. Tirador algo más grande.
+
 ## [1.1.1] - 2026-06-18
 
 ### Cambiado

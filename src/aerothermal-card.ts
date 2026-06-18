@@ -197,11 +197,18 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
               ? nothing
               : html`<path
                   class="value"
+                  style="stroke:${this.accentColor}"
                   d=${arcPath(100, 100, 80, ARC_START, valueAngle)}
                 />`}
             ${this.isOff
               ? nothing
-              : html`<circle class="handle" cx=${handle.x} cy=${handle.y} r="9" />`}
+              : html`<circle
+                  class="handle"
+                  style="stroke:${this.accentColor}"
+                  cx=${handle.x}
+                  cy=${handle.y}
+                  r="10"
+                />`}
           </svg>
           <div class="dial-center">
             <div class="preset-name">${actionLabel}</div>
@@ -496,6 +503,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       align-items: center;
       justify-content: center;
       gap: 2px;
+      /* dejar pasar el puntero al aro SVG para poder arrastrar */
+      pointer-events: none;
     }
     .preset-name {
       font-size: 0.95rem;
@@ -526,6 +535,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       display: flex;
       gap: 24px;
       margin-top: 8px;
+      /* reactivar el puntero solo en los botones +/- */
+      pointer-events: auto;
     }
     button.round {
       border: none;
