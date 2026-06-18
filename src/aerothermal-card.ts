@@ -169,6 +169,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const valueAngle = ARC_START + frac * ARC_SWEEP;
     const handle = polarToCartesian(100, 100, ARC_R, valueAngle);
     const accent = this.accentColor;
+    // tono mas oscuro del acento para el punto de temperatura actual
+    const dotColor = this.modeState === MODE_OPTION.cool ? "#15578f" : "#9c4e00";
     const gradId = `grad-${this.modeState}`;
 
     // punto de la temperatura actual sobre el aro
@@ -240,6 +242,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                   ${curDot
                     ? svg`<circle
                         class="curdot"
+                        style="fill:${dotColor}"
                         cx=${curDot.x}
                         cy=${curDot.y}
                         r="4"
@@ -546,8 +549,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       stroke-linecap: round;
     }
     .curdot {
-      fill: #000;
-      opacity: 0.9;
+      opacity: 0.95;
     }
     .handle {
       fill: #fff;

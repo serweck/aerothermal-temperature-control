@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.2.3] - 2026-06-18
+
+### Cambiado
+- Punto de temperatura actual: de negro a un **tono más oscuro del acento**
+  (azul oscuro en frío / naranja oscuro en calor), como el termostato nativo.
+
 ## [1.2.2] - 2026-06-18
 
 ### Cambiado
