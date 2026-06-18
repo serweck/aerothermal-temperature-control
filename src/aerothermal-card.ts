@@ -485,7 +485,12 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     fireEvent(this, "hass-more-info", { entityId });
   }
   private _onPointerMove(e: PointerEvent): void {
-    if (this._dragging) this._updateFromPointer(e);
+    if (!this._dragging) return;
+    // Ya hemos confirmado que el usuario agarro la bolita: bloqueamos el gesto
+    // (con pan-y el navegador cederia el deslizamiento vertical al scroll) para
+    // que el arrastre del dial funcione en cualquier direccion.
+    if (e.cancelable) e.preventDefault();
+    this._updateFromPointer(e);
   }
   private _onPointerUp(): void {
     if (!this._dragging) return;
@@ -559,11 +564,19 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       max-width: 300px;
       margin: 4px auto 0;
       aspect-ratio: 1 / 1;
+      /* touch-action en hijos SVG (<path>/<svg>) es poco fiable en el WebView
+         de Android (Chromium lo ignora sobre SVG). Declarar pan-y en este
+         envoltorio HTML es lo que realmente permite que un deslizamiento
+         vertical haga scroll de la pagina; los handlers de puntero siguen
+         detectando el arrastre de la bolita para editar la temperatura. */
+      touch-action: pan-y;
     }
     .dial {
       width: 100%;
       height: 100%;
-      touch-action: none;
+      /* pan-y (no none): un deslizamiento vertical sobre el dial hace scroll;
+         solo al agarrar la bolita el handler bloquea el gesto para arrastrar. */
+      touch-action: pan-y;
       cursor: default;
     }
     .dial.off {

@@ -1,6 +1,6 @@
 {
   "name": "aerothermal-temperature-control",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Tarjeta Lovelace para control de aerotermia (suelo radiante + impulsion) en Home Assistant",
   "type": "module",
   "main": "dist/aerothermal-temperature-control.js",
