@@ -4,6 +4,16 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.2.0] - 2026-06-18
+
+### Cambiado
+- Dial rediseñado para **igualar al termostato nativo** de HA: aro más grueso y grande,
+  hueco inferior más pequeño, **degradado** de color en el aro, relleno desde el tirador,
+  glow difuminado, tirador blanco con sombra y **punto de temperatura actual** sobre el aro.
+- **Número estilo nativo**: entero grande + `°C` pequeño arriba + decimal con coma (`,0`).
+- **Botones +/−** circulares con borde (transparentes), tamaño nativo.
+- Etiqueta de modo y temperatura actual en color de acento.
+
 ## [1.1.2] - 2026-06-18
 
 ### Corregido

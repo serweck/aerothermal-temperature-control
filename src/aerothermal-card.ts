@@ -58,9 +58,11 @@ function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`;
 }
 
-const ARC_START = 220;
-const ARC_END = 500; // hueco centrado abajo
+const ARC_START = 210;
+const ARC_END = 510; // hueco ~60 centrado abajo (como el termostato nativo)
 const ARC_SWEEP = ARC_END - ARC_START;
+const ARC_R = 80;
+const ARC_W = 18;
 
 @customElement(CARD_TAG)
 export class AerothermalCard extends LitElement implements LovelaceCard {
@@ -139,11 +141,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     return this.hass.states[this.activeThermostatId];
   }
   private get accentColor(): string {
-    if (this.isOff) return "var(--disabled-text-color, #6f6f6f)";
-    // Colores nativos de HA: azul en frio, naranja en calor
-    return this.modeState === MODE_OPTION.cool
-      ? "var(--state-climate-cool-color, #2b9af9)"
-      : "var(--state-climate-heat-color, #ff8100)";
+    if (this.isOff) return "#6f7176";
+    // Colores nativos de HA (hex concreto para que se vean siempre): azul frio / naranja calor
+    return this.modeState === MODE_OPTION.cool ? "#2b9af9" : "#ff8100";
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -167,7 +167,24 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 
     const frac = Math.min(1, Math.max(0, (liveTarget - min) / (max - min)));
     const valueAngle = ARC_START + frac * ARC_SWEEP;
-    const handle = polarToCartesian(100, 100, 80, valueAngle);
+    const handle = polarToCartesian(100, 100, ARC_R, valueAngle);
+    const accent = this.accentColor;
+    const gradId = `grad-${this.modeState}`;
+
+    // punto de la temperatura actual sobre el aro
+    const curNum = Number(current);
+    const curFrac =
+      current != null && !isNaN(curNum)
+        ? Math.min(1, Math.max(0, (curNum - min) / (max - min)))
+        : null;
+    const curDot =
+      curFrac != null
+        ? polarToCartesian(100, 100, ARC_R, ARC_START + curFrac * ARC_SWEEP)
+        : null;
+
+    // partes entera y decimal (estilo nativo: 22 grande + ,0 pequeno)
+    const intPart = Math.trunc(liveTarget);
+    const decPart = Math.abs(Math.round((liveTarget - intPart) * 10));
 
     const actionLabel = this.isOff
       ? "Apagado"
@@ -192,32 +209,66 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
             class="dial ${this.isOff ? "off" : ""}"
             @pointerdown=${this._onPointerDown}
           >
-            <path class="track" d=${arcPath(100, 100, 80, ARC_START, ARC_END)} />
+<defs>
+              <linearGradient id=${gradId} x1="0" y1="0" x2="1" y2="1">
+                ${this.modeState === MODE_OPTION.cool
+                  ? html`<stop offset="0%" stop-color="#5cc6ff" /><stop
+                        offset="100%"
+                        stop-color="#1f7fd6"
+                      />`
+                  : html`<stop offset="0%" stop-color="#ffb454" /><stop
+                        offset="100%"
+                        stop-color="#e8730a"
+                      />`}
+              </linearGradient>
+            </defs>
+            <path class="track" d=${arcPath(100, 100, ARC_R, ARC_START, ARC_END)} />
             ${this.isOff
               ? nothing
-              : html`<path
-                  class="value"
-                  style="stroke:${this.accentColor}"
-                  d=${arcPath(100, 100, 80, ARC_START, valueAngle)}
-                />`}
-            ${this.isOff
-              ? nothing
-              : html`<circle
-                  class="handle"
-                  style="stroke:${this.accentColor}"
-                  cx=${handle.x}
-                  cy=${handle.y}
-                  r="10"
-                />`}
+              : html`
+                  <!-- glow difuminado detras del aro -->
+                  <path
+                    class="glow"
+                    style="stroke:${accent}"
+                    d=${arcPath(100, 100, ARC_R, valueAngle, ARC_END)}
+                  />
+                  <path
+                    class="value"
+                    style="stroke:url(#${gradId})"
+                    d=${arcPath(100, 100, ARC_R, valueAngle, ARC_END)}
+                  />
+                  ${curDot
+                    ? html`<circle
+                        class="curdot"
+                        cx=${curDot.x}
+                        cy=${curDot.y}
+                        r="4"
+                      />`
+                    : nothing}
+                  <circle
+                    class="handle"
+                    style="stroke:${accent}"
+                    cx=${handle.x}
+                    cy=${handle.y}
+                    r="12"
+                  />
+                `}
           </svg>
           <div class="dial-center">
             <div class="preset-name">${actionLabel}</div>
             <div class="target">
-              ${this.isOff ? "--" : liveTarget.toFixed(1)}<span class="unit">°C</span>
+              ${this.isOff
+                ? html`<span class="int">--</span>`
+                : html`<span class="int">${intPart}</span
+                    ><span class="frac"
+                      ><span class="unit">°C</span
+                      ><span class="dec">,${decPart}</span></span
+                    >`}
             </div>
             ${current != null
               ? html`<div class="current">
-                  <ha-icon icon="mdi:thermometer"></ha-icon> ${current} °C
+                  <ha-icon icon="mdi:thermometer"></ha-icon>
+                  ${String(current).replace(".", ",")} °C
                 </div>`
               : nothing}
             <div class="adjust">
@@ -463,8 +514,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     .dial-wrap {
       position: relative;
       width: 100%;
-      max-width: 260px;
-      margin: 0 auto;
+      max-width: 300px;
+      margin: 4px auto 0;
       aspect-ratio: 1 / 1;
     }
     .dial {
@@ -478,22 +529,31 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     }
     .track {
       fill: none;
-      stroke: var(--divider-color, #3a3a3a);
-      stroke-width: 12;
+      stroke: var(--divider-color, #38393d);
+      stroke-width: 18;
       stroke-linecap: round;
+    }
+    .glow {
+      fill: none;
+      stroke-width: 18;
+      stroke-linecap: round;
+      opacity: 0.45;
+      filter: blur(6px);
     }
     .value {
       fill: none;
-      stroke: var(--accent);
-      stroke-width: 12;
+      stroke-width: 18;
       stroke-linecap: round;
-      transition: stroke-dashoffset 0.3s ease;
+    }
+    .curdot {
+      fill: #fff;
+      opacity: 0.9;
     }
     .handle {
       fill: #fff;
-      stroke: var(--accent);
-      stroke-width: 3;
+      stroke-width: 4;
       cursor: grab;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
     }
     .dial-center {
       position: absolute;
@@ -507,26 +567,45 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       pointer-events: none;
     }
     .preset-name {
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       color: var(--accent);
       font-weight: 600;
+      margin-bottom: 2px;
     }
     .target {
-      font-size: 2.8rem;
-      font-weight: 300;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
       line-height: 1;
     }
-    .target .unit {
-      font-size: 1.1rem;
-      vertical-align: super;
+    .target .int {
+      font-size: 3.6rem;
+      font-weight: 300;
+      letter-spacing: -1px;
+    }
+    .target .frac {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-top: 8px;
       margin-left: 2px;
     }
-    .current {
-      font-size: 0.9rem;
+    .target .unit {
+      font-size: 1.05rem;
+      font-weight: 400;
       color: var(--secondary-text-color);
+    }
+    .target .dec {
+      font-size: 1.7rem;
+      font-weight: 300;
+    }
+    .current {
+      font-size: 0.95rem;
+      color: var(--accent);
       display: flex;
       align-items: center;
-      gap: 2px;
+      gap: 3px;
+      margin-top: 2px;
     }
     .current ha-icon {
       --mdc-icon-size: 16px;
@@ -539,20 +618,24 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       pointer-events: auto;
     }
     button.round {
-      border: none;
+      border: 2px solid var(--divider-color, #46494d);
       border-radius: 50%;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       cursor: pointer;
-      background: var(--secondary-background-color, #2a2a2a);
+      background: transparent;
       color: var(--primary-text-color);
       display: flex;
       align-items: center;
       justify-content: center;
     }
+    button.round ha-icon {
+      --mdc-icon-size: 22px;
+    }
     button.round.sm {
       width: 30px;
       height: 30px;
+      border-width: 2px;
     }
     button.round:disabled {
       opacity: 0.35;
