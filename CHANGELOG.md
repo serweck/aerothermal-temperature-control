@@ -4,6 +4,16 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.1.0] - 2026-06-18
+
+### Añadido
+- **Dial arrastrable**: ajusta la temperatura objetivo arrastrando sobre el aro (ratón y táctil),
+  como el termostato nativo. Se confirma al soltar (`climate.set_temperature`).
+
+### Cambiado
+- Color del aro y del **botón de modo activo / presets**: **azul** en frío y **rojo** en calor
+  (la variable `--accent` ahora se hereda desde `ha-card`).
+
 ## [1.0.0] - 2026-06-18
 
 ### Añadido

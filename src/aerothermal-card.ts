@@ -66,6 +66,17 @@ const ARC_SWEEP = ARC_END - ARC_START;
 export class AerothermalCard extends LitElement implements LovelaceCard {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private config!: AerothermalCardConfig;
+  @state() private _dragging = false;
+  @state() private _dragTemp: number | null = null;
+
+  private _boundMove = (e: PointerEvent) => this._onPointerMove(e);
+  private _boundUp = () => this._onPointerUp();
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener("pointermove", this._boundMove);
+    window.removeEventListener("pointerup", this._boundUp);
+  }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     return document.createElement(
@@ -103,7 +114,12 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
-    return changed.has("config") || changed.has("hass");
+    return (
+      changed.has("config") ||
+      changed.has("hass") ||
+      changed.has("_dragging") ||
+      changed.has("_dragTemp")
+    );
   }
 
   // --- estado derivado ---
@@ -124,9 +140,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
   private get accentColor(): string {
     if (this.isOff) return "var(--disabled-text-color, #6f6f6f)";
-    return this.modeState === MODE_OPTION.cool
-      ? "var(--state-climate-cool-color, #2196f3)"
-      : "var(--state-climate-heat-color, #ff9800)";
+    // Azul en frio, rojo en calor (como el termostato nativo)
+    return this.modeState === MODE_OPTION.cool ? "#2196f3" : "#e53935";
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -143,11 +158,12 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const min = Number(t.attributes.min_temp ?? 12);
     const max = Number(t.attributes.max_temp ?? 30);
     const target = Number(t.attributes.temperature ?? min);
+    const liveTarget = this._dragTemp != null ? this._dragTemp : target;
     const current = t.attributes.current_temperature;
     const action = (t.attributes.hvac_action as string) ?? "idle";
     const presetMode = t.attributes.preset_mode as string | undefined;
 
-    const frac = Math.min(1, Math.max(0, (target - min) / (max - min)));
+    const frac = Math.min(1, Math.max(0, (liveTarget - min) / (max - min)));
     const valueAngle = ARC_START + frac * ARC_SWEEP;
     const handle = polarToCartesian(100, 100, 80, valueAngle);
 
@@ -162,14 +178,18 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       : "Calor";
 
     return html`
-      <ha-card>
+      <ha-card style="--accent:${this.accentColor}">
         <div class="header">
           <span class="title">${this.config.name ?? "Aerotermia"}</span>
         </div>
 
         <!-- DIAL -->
-        <div class="dial-wrap" style="--accent:${this.accentColor}">
-          <svg viewBox="0 0 200 200" class="dial">
+        <div class="dial-wrap">
+          <svg
+            viewBox="0 0 200 200"
+            class="dial ${this.isOff ? "off" : ""}"
+            @pointerdown=${this._onPointerDown}
+          >
             <path class="track" d=${arcPath(100, 100, 80, ARC_START, ARC_END)} />
             ${this.isOff
               ? nothing
@@ -184,7 +204,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
           <div class="dial-center">
             <div class="preset-name">${actionLabel}</div>
             <div class="target">
-              ${this.isOff ? "--" : target.toFixed(1)}<span class="unit">°C</span>
+              ${this.isOff ? "--" : liveTarget.toFixed(1)}<span class="unit">°C</span>
             </div>
             ${current != null
               ? html`<div class="current">
@@ -353,6 +373,60 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     });
   }
 
+  // --- arrastre del dial ---
+  private _onPointerDown(e: PointerEvent): void {
+    if (this.isOff) return;
+    e.preventDefault();
+    this._dragging = true;
+    this._updateFromPointer(e);
+    window.addEventListener("pointermove", this._boundMove);
+    window.addEventListener("pointerup", this._boundUp);
+  }
+  private _onPointerMove(e: PointerEvent): void {
+    if (this._dragging) this._updateFromPointer(e);
+  }
+  private _onPointerUp(): void {
+    if (!this._dragging) return;
+    this._dragging = false;
+    window.removeEventListener("pointermove", this._boundMove);
+    window.removeEventListener("pointerup", this._boundUp);
+    if (this._dragTemp != null) {
+      this.hass.callService("climate", "set_temperature", {
+        entity_id: this.activeThermostatId,
+        temperature: this._dragTemp,
+      });
+    }
+    this._dragTemp = null;
+  }
+  private _updateFromPointer(e: PointerEvent): void {
+    const svg = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
+    const t = this.activeThermostat;
+    if (!svg || !t) return;
+    const rect = svg.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // 0 = arriba, horario
+    if (angle < 0) angle += 360;
+
+    let frac: number;
+    if (angle >= ARC_START && angle <= 360) {
+      frac = (angle - ARC_START) / ARC_SWEEP;
+    } else if (angle >= 0 && angle <= 140) {
+      frac = (angle + 360 - ARC_START) / ARC_SWEEP;
+    } else {
+      // zona muerta inferior: fijar al extremo mas cercano
+      frac = angle - 140 < ARC_START - angle ? 1 : 0;
+    }
+    frac = Math.min(1, Math.max(0, frac));
+
+    const min = Number(t.attributes.min_temp ?? 12);
+    const max = Number(t.attributes.max_temp ?? 30);
+    const step = Number(t.attributes.target_temp_step ?? 0.5);
+    let temp = min + frac * (max - min);
+    temp = Math.min(max, Math.max(min, Math.round(temp / step) * step));
+    this._dragTemp = Number(temp.toFixed(2));
+  }
+
   static styles = css`
     ha-card {
       padding: 12px 12px 16px;
@@ -387,6 +461,11 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     .dial {
       width: 100%;
       height: 100%;
+      touch-action: none;
+      cursor: pointer;
+    }
+    .dial.off {
+      cursor: default;
     }
     .track {
       fill: none;
@@ -405,6 +484,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       fill: #fff;
       stroke: var(--accent);
       stroke-width: 3;
+      cursor: grab;
     }
     .dial-center {
       position: absolute;
