@@ -84,6 +84,7 @@ mode_select: input_select.aerotermia_modo
 thermostat_heat: climate.suelo_radiante_calor
 thermostat_cool: climate.suelo_radiante_frio
 water_climate: climate.bomba_de_calor_aire_agua_2
+current_sensor: sensor.temperatura_termostato   # temp real del dial (recomendado)
 pump_switch: switch.socket_garaje_aerotermia_bomba
 inertia_sensor: ""        # vacío -> usa current_temperature del LG
 presets:
@@ -107,6 +108,7 @@ También hay **editor visual** para los entity_id principales (presets y `show_m
 | `thermostat_heat` | ✅ | `generic_thermostat` de calor. |
 | `thermostat_cool` | ✅ | `generic_thermostat` de frío. |
 | `water_climate` | ✅ | Climate del motor LG. |
+| `current_sensor` | — | Sensor de la zona para la temperatura real del dial. Recomendado: más fiable que el `current_temperature` del termostato (que puede no refrescar). |
 | `pump_switch` | — | Relé de la bomba (indicador). |
 | `inertia_sensor` | — | Sensor de inercia; vacío usa `current_temperature` del LG. |
 | `name` | — | Título de la tarjeta. |

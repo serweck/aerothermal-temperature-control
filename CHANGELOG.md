@@ -4,6 +4,13 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.3.0] - 2026-06-18
+
+### Añadido
+- Opción **`current_sensor`**: lee la temperatura real del dial directamente del sensor de la
+  zona en vez del `current_temperature` del termostato (que puede quedarse congelado). Resuelve
+  que la temperatura real no se actualizara aunque el sensor sí cambiara. Disponible en el editor.
+
 ## [1.2.3] - 2026-06-18
 
 ### Cambiado

@@ -26,6 +26,7 @@ const SCHEMA = [
     required: true,
     selector: { entity: { domain: "climate" } },
   },
+  { name: "current_sensor", selector: { entity: { domain: "sensor" } } },
   { name: "pump_switch", selector: { entity: { domain: "switch" } } },
   { name: "inertia_sensor", selector: { entity: { domain: "sensor" } } },
 ];
@@ -36,6 +37,7 @@ const LABELS: Record<string, string> = {
   thermostat_heat: "Termostato CALOR (generic_thermostat)",
   thermostat_cool: "Termostato FRIO (generic_thermostat)",
   water_climate: "Climate del motor LG",
+  current_sensor: "Sensor temperatura zona (real, opcional)",
   pump_switch: "Rele de la bomba (opcional)",
   inertia_sensor: "Sensor de inercia (opcional)",
 };

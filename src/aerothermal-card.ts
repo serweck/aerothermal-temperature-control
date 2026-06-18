@@ -93,6 +93,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       thermostat_heat: "climate.suelo_radiante_calor",
       thermostat_cool: "climate.suelo_radiante_frio",
       water_climate: "climate.bomba_de_calor_aire_agua_2",
+      current_sensor: "sensor.temperatura_termostato",
       pump_switch: "switch.socket_garaje_aerotermia_bomba",
       inertia_sensor: "",
       show_modes: ["off", "cool", "heat"],
@@ -161,7 +162,16 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const max = Number(t.attributes.max_temp ?? 30);
     const target = Number(t.attributes.temperature ?? min);
     const liveTarget = this._dragTemp != null ? this._dragTemp : target;
-    const current = t.attributes.current_temperature;
+    // temperatura real: del sensor de zona si se configura (mas fiable), si no
+    // del current_temperature del termostato activo.
+    const sensorState =
+      this.config.current_sensor && this.hass.states[this.config.current_sensor]
+        ? this.hass.states[this.config.current_sensor].state
+        : undefined;
+    const current =
+      sensorState != null && sensorState !== "unknown" && sensorState !== "unavailable"
+        ? sensorState
+        : t.attributes.current_temperature;
     const action = (t.attributes.hvac_action as string) ?? "idle";
     const presetMode = t.attributes.preset_mode as string | undefined;
 
