@@ -15,7 +15,7 @@ function t(t,e,s,i){var o,r=arguments.length,n=r<3?e:null===i?i=Object.getOwnPro
       font-size: 0.85em;
       margin-top: 8px;
     }
-  `,t([mt({attribute:!1})],At.prototype,"hass",void 0),t([ft()],At.prototype,"_config",void 0),At=t([dt("aerothermal-temperature-control-editor")],At),console.info("%c AEROTHERMAL-TEMPERATURE-CONTROL %c v1.2.1 ","color: white; background: #03a9f4; font-weight: 700;","color: #03a9f4; background: #1c1c1c; font-weight: 700;"),window.customCards=window.customCards||[],window.customCards.push({type:vt,name:"Aerothermal Temperature Control",description:"Termostato de suelo radiante + control del motor de aerotermia (LG)",preview:!0});const Et=[{label:"Fuera",preset:"away",icon:"mdi:home-export-outline"},{label:"Confort",preset:"comfort",icon:"mdi:sofa"},{label:"Eco",preset:"eco",icon:"mdi:leaf"},{label:"En Casa",preset:"home",icon:"mdi:home"},{label:"Dormir",preset:"sleep",icon:"mdi:bed"}],St={off:{icon:"mdi:power",label:"Apagado",option:_t},cool:{icon:"mdi:snowflake",label:"Frio",option:gt},heat:{icon:"mdi:fire",label:"Calor",option:$t}};function Ct(t,e,s,i){const o=(i-90)*Math.PI/180;return{x:t+s*Math.cos(o),y:e+s*Math.sin(o)}}function Pt(t,e,s,i,o){const r=Ct(t,e,s,o),n=Ct(t,e,s,i),a=o-i<=180?"0":"1";return`M ${r.x} ${r.y} A ${s} ${s} 0 ${a} 0 ${n.x} ${n.y}`}const Mt=210,Ot=510,Tt=300;let kt=class extends lt{constructor(){super(...arguments),this._dragging=!1,this._dragTemp=null,this._boundMove=t=>this._onPointerMove(t),this._boundUp=()=>this._onPointerUp()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("pointermove",this._boundMove),window.removeEventListener("pointerup",this._boundUp)}static async getConfigElement(){return document.createElement("aerothermal-temperature-control-editor")}static getStubConfig(){return{name:"Aerotermia",mode_select:"input_select.aerotermia_modo",thermostat_heat:"climate.suelo_radiante_calor",thermostat_cool:"climate.suelo_radiante_frio",water_climate:"climate.bomba_de_calor_aire_agua_2",pump_switch:"switch.socket_garaje_aerotermia_bomba",inertia_sensor:"",show_modes:["off","cool","heat"]}}setConfig(t){if(!t.mode_select)throw new Error("Falta 'mode_select'");if(!t.thermostat_heat)throw new Error("Falta 'thermostat_heat'");if(!t.thermostat_cool)throw new Error("Falta 'thermostat_cool'");if(!t.water_climate)throw new Error("Falta 'water_climate'");this.config={show_modes:["off","cool","heat"],presets:Et,...t}}getCardSize(){return 5}shouldUpdate(t){return t.has("config")||t.has("hass")||t.has("_dragging")||t.has("_dragTemp")}get modeState(){const t=this.hass.states[this.config.mode_select];return t?t.state:"off"}get isOff(){return this.modeState===_t}get activeThermostatId(){return this.modeState===gt?this.config.thermostat_cool:this.config.thermostat_heat}get activeThermostat(){return this.hass.states[this.activeThermostatId]}get accentColor(){return this.isOff?"#6f7176":this.modeState===gt?"#2b9af9":"#ff8100"}render(){if(!this.hass||!this.config)return V;const t=this.activeThermostat;if(!t)return q`<ha-card
+  `,t([mt({attribute:!1})],At.prototype,"hass",void 0),t([ft()],At.prototype,"_config",void 0),At=t([dt("aerothermal-temperature-control-editor")],At),console.info("%c AEROTHERMAL-TEMPERATURE-CONTROL %c v1.2.2 ","color: white; background: #03a9f4; font-weight: 700;","color: #03a9f4; background: #1c1c1c; font-weight: 700;"),window.customCards=window.customCards||[],window.customCards.push({type:vt,name:"Aerothermal Temperature Control",description:"Termostato de suelo radiante + control del motor de aerotermia (LG)",preview:!0});const Et=[{label:"Fuera",preset:"away",icon:"mdi:home-export-outline"},{label:"Confort",preset:"comfort",icon:"mdi:sofa"},{label:"Eco",preset:"eco",icon:"mdi:leaf"},{label:"En Casa",preset:"home",icon:"mdi:home"},{label:"Dormir",preset:"sleep",icon:"mdi:bed"}],St={off:{icon:"mdi:power",label:"Apagado",option:_t},cool:{icon:"mdi:snowflake",label:"Frio",option:gt},heat:{icon:"mdi:fire",label:"Calor",option:$t}};function Ct(t,e,s,i){const o=(i-90)*Math.PI/180;return{x:t+s*Math.cos(o),y:e+s*Math.sin(o)}}function Pt(t,e,s,i,o){const r=Ct(t,e,s,o),n=Ct(t,e,s,i),a=o-i<=180?"0":"1";return`M ${r.x} ${r.y} A ${s} ${s} 0 ${a} 0 ${n.x} ${n.y}`}const Mt=210,Ot=510,Tt=300;let kt=class extends lt{constructor(){super(...arguments),this._dragging=!1,this._dragTemp=null,this._boundMove=t=>this._onPointerMove(t),this._boundUp=()=>this._onPointerUp()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("pointermove",this._boundMove),window.removeEventListener("pointerup",this._boundUp)}static async getConfigElement(){return document.createElement("aerothermal-temperature-control-editor")}static getStubConfig(){return{name:"Aerotermia",mode_select:"input_select.aerotermia_modo",thermostat_heat:"climate.suelo_radiante_calor",thermostat_cool:"climate.suelo_radiante_frio",water_climate:"climate.bomba_de_calor_aire_agua_2",pump_switch:"switch.socket_garaje_aerotermia_bomba",inertia_sensor:"",show_modes:["off","cool","heat"]}}setConfig(t){if(!t.mode_select)throw new Error("Falta 'mode_select'");if(!t.thermostat_heat)throw new Error("Falta 'thermostat_heat'");if(!t.thermostat_cool)throw new Error("Falta 'thermostat_cool'");if(!t.water_climate)throw new Error("Falta 'water_climate'");this.config={show_modes:["off","cool","heat"],presets:Et,...t}}getCardSize(){return 5}shouldUpdate(t){return t.has("config")||t.has("hass")||t.has("_dragging")||t.has("_dragTemp")}get modeState(){const t=this.hass.states[this.config.mode_select];return t?t.state:"off"}get isOff(){return this.modeState===_t}get activeThermostatId(){return this.modeState===gt?this.config.thermostat_cool:this.config.thermostat_heat}get activeThermostat(){return this.hass.states[this.activeThermostatId]}get accentColor(){return this.isOff?"#6f7176":this.modeState===gt?"#2b9af9":"#ff8100"}render(){if(!this.hass||!this.config)return V;const t=this.activeThermostat;if(!t)return q`<ha-card
         ><div class="warn">
           Entidad no encontrada: ${this.activeThermostatId}
         </div></ha-card
@@ -67,7 +67,7 @@ function t(t,e,s,i){var o,r=arguments.length,n=r<3?e:null===i?i=Object.getOwnPro
                     style="stroke:${d}"
                     cx=${h.x}
                     cy=${h.y}
-                    r="12"
+                    r="8"
                   />
                 `}
           </svg>
@@ -228,14 +228,14 @@ function t(t,e,s,i){var o,r=arguments.length,n=r<3?e:null===i?i=Object.getOwnPro
       stroke-linecap: round;
     }
     .curdot {
-      fill: #fff;
+      fill: #000;
       opacity: 0.9;
     }
     .handle {
       fill: #fff;
-      stroke-width: 4;
+      stroke-width: 3;
       cursor: grab;
-      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
     }
     .dial-center {
       position: absolute;

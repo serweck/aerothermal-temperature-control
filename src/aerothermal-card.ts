@@ -250,7 +250,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                     style="stroke:${accent}"
                     cx=${handle.x}
                     cy=${handle.y}
-                    r="12"
+                    r="8"
                   />
                 `}
           </svg>
@@ -546,14 +546,14 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       stroke-linecap: round;
     }
     .curdot {
-      fill: #fff;
+      fill: #000;
       opacity: 0.9;
     }
     .handle {
       fill: #fff;
-      stroke-width: 4;
+      stroke-width: 3;
       cursor: grab;
-      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
     }
     .dial-center {
       position: absolute;

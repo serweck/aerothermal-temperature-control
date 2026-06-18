@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.2.2] - 2026-06-18
+
+### Cambiado
+- Tirador (bola) más pequeño (r 12 → 8).
+- Punto de temperatura actual ahora **negro** (antes blanco).
+
 ## [1.2.1] - 2026-06-18
 
 ### Corregido
