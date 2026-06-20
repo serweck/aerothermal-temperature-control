@@ -4,6 +4,24 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.4] - 2026-06-20
+
+### Corregido
+- **Móvil: se podía cambiar la temperatura tocando casi en cualquier punto del dial**, no solo en
+  la bolita. Causa: el hit-test medía la bolita con `getBoundingClientRect`, pero el filtro
+  `drop-shadow` infla esa caja en varios WebView de Android, así que el "cerca de la bolita" pasaba
+  casi siempre. Ahora el hit-test es **geométrico** (radio + ángulo del toque respecto al centro
+  del SVG), independiente de la caja del elemento filtrado.
+- **Arrastre errático en móvil**: se usa `setPointerCapture` y el dial vuelve a `touch-action: none`
+  (revierte el `pan-y` de 1.4.3, que dejaba que el navegador robara el gesto). El resto de la
+  tarjeta sigue desplazándose con normalidad.
+
+## [1.4.3] - 2026-06-18
+
+### Cambiado
+- El dial usaba `touch-action: pan-y` para permitir el scroll de la página sobre él (revertido
+  en 1.4.4 por causar arrastre errático en móvil).
+
 ## [1.4.2] - 2026-06-18
 
 ### Cambiado

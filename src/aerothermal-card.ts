@@ -72,6 +72,10 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   @state() private _dragging = false;
   @state() private _dragTemp: number | null = null;
 
+  // angulo (0-360) de la bolita en el ultimo render, para el hit-test del arrastre
+  private _valueAngle = 0;
+  private _dragPointerId: number | null = null;
+
   private _boundMove = (e: PointerEvent) => this._onPointerMove(e);
   private _boundUp = () => this._onPointerUp();
 
@@ -79,6 +83,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     super.disconnectedCallback();
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
+    window.removeEventListener("pointercancel", this._boundUp);
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -178,6 +183,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 
     const frac = Math.min(1, Math.max(0, (liveTarget - min) / (max - min)));
     const valueAngle = ARC_START + frac * ARC_SWEEP;
+    this._valueAngle = valueAngle % 360; // para el hit-test del arrastre
     const handle = polarToCartesian(100, 100, ARC_R, valueAngle);
     const accent = this.accentColor;
     // tono mas oscuro del acento para el punto de temperatura actual
@@ -466,19 +472,38 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   // --- arrastre del dial ---
   private _onPointerDown(e: PointerEvent): void {
     if (this.isOff) return;
-    // Solo arrastrar si se agarra la bolita (tirador), no el resto del dial.
-    const handle = this.renderRoot.querySelector(".handle") as SVGElement | null;
-    if (!handle) return;
-    const r = handle.getBoundingClientRect();
-    const dist = Math.hypot(
-      e.clientX - (r.left + r.width / 2),
-      e.clientY - (r.top + r.height / 2)
-    );
-    if (dist > Math.max(26, r.width)) return; // margen de agarre (tactil)
+    const svgEl = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    // Hit-test geometrico (NO medimos la bolita con getBoundingClientRect: en
+    // varios WebView de movil el filtro drop-shadow infla su caja y el "cerca
+    // de la bolita" pasaba casi en cualquier punto del dial). Calculamos el
+    // radio y el angulo del toque respecto al centro del SVG.
+    const scale = rect.width / 200; // viewBox 0 0 200 200
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    const dist = Math.hypot(dx, dy);
+    const ringR = ARC_R * scale;
+    // 1) el toque debe caer sobre la banda del aro
+    if (Math.abs(dist - ringR) > (ARC_W / 2 + 12) * scale) return;
+    // 2) y junto a la bolita (tirador), no en cualquier punto del aro
+    let ang = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // 0 = arriba, horario
+    if (ang < 0) ang += 360;
+    let diff = Math.abs(ang - this._valueAngle);
+    if (diff > 180) diff = 360 - diff;
+    if (diff > 22) return; // margen angular de agarre
     e.preventDefault();
     this._dragging = true;
+    this._dragPointerId = e.pointerId;
+    try {
+      svgEl.setPointerCapture(e.pointerId);
+    } catch (_) {
+      /* noop */
+    }
     window.addEventListener("pointermove", this._boundMove);
     window.addEventListener("pointerup", this._boundUp);
+    window.addEventListener("pointercancel", this._boundUp);
   }
   private _openMoreInfo(entityId?: string): void {
     if (!entityId || !this.hass?.states[entityId]) return;
@@ -497,6 +522,16 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     this._dragging = false;
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
+    window.removeEventListener("pointercancel", this._boundUp);
+    if (this._dragPointerId != null) {
+      const svgEl = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
+      try {
+        svgEl?.releasePointerCapture(this._dragPointerId);
+      } catch (_) {
+        /* noop */
+      }
+      this._dragPointerId = null;
+    }
     if (this._dragTemp != null) {
       this.hass.callService("climate", "set_temperature", {
         entity_id: this.activeThermostatId,
@@ -564,19 +599,15 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       max-width: 300px;
       margin: 4px auto 0;
       aspect-ratio: 1 / 1;
-      /* touch-action en hijos SVG (<path>/<svg>) es poco fiable en el WebView
-         de Android (Chromium lo ignora sobre SVG). Declarar pan-y en este
-         envoltorio HTML es lo que realmente permite que un deslizamiento
-         vertical haga scroll de la pagina; los handlers de puntero siguen
-         detectando el arrastre de la bolita para editar la temperatura. */
-      touch-action: pan-y;
     }
     .dial {
       width: 100%;
       height: 100%;
-      /* pan-y (no none): un deslizamiento vertical sobre el dial hace scroll;
-         solo al agarrar la bolita el handler bloquea el gesto para arrastrar. */
-      touch-action: pan-y;
+      /* none: el gesto sobre el dial no lo roba el scroll del navegador, asi el
+         arrastre de la bolita funciona en cualquier direccion en movil. El
+         hit-test solo inicia el arrastre al agarrar la bolita; el resto de la
+         tarjeta sigue desplazandose con normalidad. */
+      touch-action: none;
       cursor: default;
     }
     .dial.off {
