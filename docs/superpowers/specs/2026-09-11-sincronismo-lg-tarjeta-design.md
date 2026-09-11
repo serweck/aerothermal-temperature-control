@@ -48,6 +48,47 @@ fichero y recargar con `input_select.reload`.
 
 El resto del documento conserva la versión 1 salvo en lo que esta tabla corrige.
 
+
+## 0.1 Revisión 3 — el eco de la nube, y por que C tiene una condicion
+
+**Sintoma:** pulsando frio y calor deprisa en la tarjeta, el sistema oscilaba solo entre `frio` y
+`calor` cada ~1 s, sin parar, y **llegaba a pisar el apagado del usuario** (18:46:41.778 `off` ->
+18:46:41.826 `calor`, 48 ms despues).
+
+**Causa raiz:** `lg_thinq` es una integracion **en la nube, con ~2 s de latencia**. Las ordenes que
+A le manda al LG vuelven mas tarde como cambios de estado. **C se creia cada uno de esos ecos** y
+los reescribia en el `input_select`, pisando la eleccion mas reciente del usuario y disparando A de
+nuevo, que mandaba otra orden, que producia otro eco. Bucle autosostenido.
+
+C no distinguia *"la maquina ha cambiado"* de *"el eco de la orden que acabo de dar yo"*.
+
+**Evidencia:** las tres ejecuciones de C durante la tormenta tenian **`parent_id` en su contexto**,
+es decir, el cambio del LG que las disparo lo habia originado Home Assistant, no el equipo.
+
+**Arreglo:** una condicion en C que solo deja pasar los cambios de origen externo.
+
+```yaml
+condition:
+  - condition: template
+    value_template: "{{ trigger.to_state.context.parent_id is none }}"
+```
+
+| origen del cambio | `parent_id` | `user_id` | C actua |
+|---|---|---|---|
+| la maquina / el panel fisico | null | null | **si** |
+| el usuario, desde la entidad del LG en HA | null | puesto | **si** |
+| eco de una orden de A | **puesto** | null | **no** |
+
+**Verificado** repitiendo el escenario exacto: mismos dos cambios rapidos, mismos dos ecos del LG.
+Antes, tres ejecuciones de C con `execution: finished`. Despues, dos con
+**`execution: failed_conditions`** y el modo quieto en `calor`.
+
+> [!warning] La leccion, por si vuelve a aparecer
+> Cualquier sincronia bidireccional con un dispositivo **en la nube** tiene este problema. La
+> latencia convierte las ordenes propias en entradas indistinguibles de las ajenas. El contexto de
+> Home Assistant es lo que permite separarlas, y hay que usarlo desde el principio, no cuando el
+> sistema ya esta oscilando.
+
 ## 1. El problema
 
 La tarjeta es un espejo de `input_select.aerotermia_modo`, y ese `input_select` solo lo escribe la

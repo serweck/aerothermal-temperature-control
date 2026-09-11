@@ -124,6 +124,21 @@
     - platform: state
       entity_id: climate.bomba_de_calor_aire_agua_2
       to: ["heat", "cool", "auto", "off"]
+  condition:
+    # Solo hacemos caso a los cambios que NO ha originado Home Assistant.
+    #
+    # lg_thinq es una integracion en la nube con ~2 s de latencia, asi que las
+    # ordenes que A le manda al LG vuelven como cambios de estado tardios. Sin
+    # esta condicion, esos ecos se tomaban por decisiones de la maquina, se
+    # reescribian en el input_select pisando lo que el usuario acababa de
+    # elegir, y disparaban A otra vez: oscilacion sostenida cada ~1 s.
+    #
+    # Firma del origen del cambio:
+    #   maquina o panel -> parent_id null,   user_id null    -> SI actuamos
+    #   usuario en HA   -> parent_id null,   user_id puesto  -> SI actuamos
+    #   eco de A        -> parent_id PUESTO                  -> lo ignoramos
+    - condition: template
+      value_template: "{{ trigger.to_state.context.parent_id is none }}"
   action:
     - service: input_select.select_option
       target: { entity_id: input_select.aerotermia_modo }
