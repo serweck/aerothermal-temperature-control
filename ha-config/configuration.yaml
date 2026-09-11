@@ -58,6 +58,7 @@ input_select:
       - "off"
       - calor
       - frio
+      - auto          # el LG decide; el suelo circula (automatizacion D)
 
 # =====================================================================
 #  Punto de rocio interior — corte de seguridad de la circulacion en auto

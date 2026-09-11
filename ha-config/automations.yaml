@@ -47,16 +47,13 @@
             - service: climate.set_hvac_mode
               target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
               data: { hvac_mode: cool }
-        # ---- APAGADO, PERO EL LG EN AUTO ----
-        # No se apaga el LG ni se toca el rele: del estado auto se encarga por
-        # completo la automatizacion D. Sin esta rama, poner la maquina en auto
-        # desde su panel haria que HA la apagase sola a los pocos segundos.
+        # ---- AUTO ----
+        # El LG decide calor o frio. Ningun termostato manda (se pelearian por
+        # el rele compartido) y del rele se encarga la automatizacion D, con
+        # sus cortes de seguridad.
         - conditions:
             - condition: state
               entity_id: input_select.aerotermia_modo
-              state: "off"
-            - condition: state
-              entity_id: climate.bomba_de_calor_aire_agua_2
               state: auto
           sequence:
             - service: climate.set_hvac_mode
@@ -65,6 +62,9 @@
                   - climate.suelo_radiante_calor
                   - climate.suelo_radiante_frio
               data: { hvac_mode: "off" }
+            - service: climate.set_hvac_mode
+              target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
+              data: { hvac_mode: auto }
       # ---- OFF (default) ----
       default:
         - service: climate.set_hvac_mode

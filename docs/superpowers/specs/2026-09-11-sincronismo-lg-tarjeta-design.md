@@ -1,8 +1,52 @@
 # Sincronismo LG -> tarjeta, y tratamiento del modo `auto`
 
 - **Fecha:** 2026-09-11
-- **Estado:** aprobado en diseño, pendiente de plan de implementación
+- **Estado:** en ejecución. **Revisado el mismo día** — ver "Revisión 2" más abajo
 - **Alcance:** automatizaciones y helpers de Home Assistant. **No toca el código de la tarjeta.**
+
+
+## 0. Revisión 2 — el `input_select` gana la opción `auto`
+
+La versión original de este diseño reflejaba el modo `auto` del LG como **`off`** en la tarjeta
+(decisión D1), porque el `input_select` solo admitía `off`/`calor`/`frio`. Eso obligaba a dos
+apaños:
+
+- una **guarda** en la automatización A (D5) para que, con el modo en `off` y el LG en `auto`, no le
+  mandase `hvac_mode: off` y apagara la máquina sola;
+- y dejaba abierto que **desde la tarjeta no se pudiera apagar** la máquina estando en `auto`,
+  porque el `input_select` ya valía `off` y pulsar Apagado no cambiaba ningún estado.
+
+Había además un tercer problema que solo aparecio al planificar: **al salir de `auto` el relé se
+quedaba encendido**, porque el `input_select` no cambiaba de valor y A no llegaba a dispararse. Solo
+lo rescataba la automatización B, 30 segundos después.
+
+**Añadir `auto` como cuarta opción del `input_select` mata los tres a la vez**, y ademas simplifica:
+salir de `auto` ya es un cambio de estado real (`auto` -> `off`), asi que A se dispara por su camino
+normal, apaga el relé y apaga el LG. La guarda D5 sobra y se elimina.
+
+### Qué cambia respecto a lo escrito más abajo
+
+| | versión 1 | **versión 2 (vigente)** |
+|---|---|---|
+| D1 | el LG en `auto` se refleja como `off` | se refleja como **`auto`** |
+| `input_select.aerotermia_modo` | `off`, `calor`, `frio` | + **`auto`** |
+| D5 (guarda en A) | necesaria | **eliminada, ya no hace falta** |
+| Rama `auto` de A | condición compuesta `off` + LG en `auto`; no tocaba el LG | condición simple `modo == auto`; apaga termostatos y **manda `auto` al LG** |
+| Automatización C | LG `auto` -> escribe `off` | LG `auto` -> escribe **`auto`** |
+| Apagar desde la tarjeta en `auto` | imposible (problema abierto) | **funciona sin caso especial** |
+| Relé al salir de `auto` | lo apagaba B, 30 s después | lo apaga A, en el acto |
+| Tarjeta | sin cambios | **cuarto modo `auto`**, presets habilitados (release 1.4.6) |
+
+`input_select.aerotermia_modo` es un helper **de YAML** (`editable: false`), definido en
+`/homeassistant/configuration.yaml` (líneas 59-67). No se puede tocar desde la UI: hay que editar el
+fichero y recargar con `input_select.reload`.
+
+> [!warning] El preset en `auto` no actúa en el momento
+> En `auto` los dos `generic_thermostat` están apagados, así que cambiar el preset **no mueve nada**
+> mientras la máquina decide: solo deja fijada la temperatura objetivo para cuando se salga de
+> `auto`. Se puede tocar, pero no tiene efecto inmediato.
+
+El resto del documento conserva la versión 1 salvo en lo que esta tabla corrige.
 
 ## 1. El problema
 
