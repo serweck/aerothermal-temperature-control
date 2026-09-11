@@ -391,8 +391,19 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _renderPresets(active?: string): TemplateResult {
-    const presets = this.config.presets ?? DEFAULT_PRESETS;
+  private _renderPresets(active?: string): TemplateResult | typeof nothing {
+    // Solo pintamos los presets que el termostato activo declara en preset_modes:
+    // el resto son botones muertos, porque climate.set_preset_mode falla con un
+    // preset que la entidad no soporta. El YAML sigue mandando en etiqueta, icono
+    // y orden; el climate manda en cuales existen. Si el atributo no esta (entidad
+    // sin cargar o no disponible) no pintamos ninguno.
+    const supported = this.hass.states[this.activeThermostatId]?.attributes
+      .preset_modes as string[] | undefined;
+    if (!supported) return nothing;
+    const presets = (this.config.presets ?? DEFAULT_PRESETS).filter((p) =>
+      supported.includes(p.preset)
+    );
+    if (!presets.length) return nothing;
     return html`
       <div class="presets">
         ${presets.map(

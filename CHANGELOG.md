@@ -4,6 +4,19 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.5] - 2026-09-11
+
+### Corregido
+- **La tarjeta pintaba presets que el termostato no soporta.** `DEFAULT_PRESETS` declara cinco
+  (Fuera, Confort, Eco, En Casa, Dormir), pero un `generic_thermostat` solo expone en
+  `preset_modes` aquellos para los que hay temperatura configurada. En la instalacion de
+  referencia son tres (`away`, `comfort`, `eco`), asi que **"En Casa" y "Dormir" eran botones
+  muertos**: al pulsarlos, `climate.set_preset_mode` falla porque el preset no existe en la
+  entidad. Ahora `_renderPresets` filtra la lista configurada por el `preset_modes` del termostato
+  **activo**, de modo que el YAML sigue mandando en etiqueta, icono y orden, y el climate manda en
+  cuales existen. Si el atributo no esta presente (entidad sin cargar o no disponible) no se pinta
+  ninguno, para no ofrecer nunca un boton que no se pueda pulsar.
+
 ## [1.4.4] - 2026-06-20
 
 ### Corregido
