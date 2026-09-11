@@ -45,6 +45,7 @@ const MODE_META: Record<string, { icon: string; label: string; option: string }>
   off: { icon: "mdi:power", label: "Apagado", option: MODE_OPTION.off },
   cool: { icon: "mdi:snowflake", label: "Frio", option: MODE_OPTION.cool },
   heat: { icon: "mdi:fire", label: "Calor", option: MODE_OPTION.heat },
+  auto: { icon: "mdi:autorenew", label: "Auto", option: MODE_OPTION.auto },
 };
 
 // --- helpers SVG para el dial ---
@@ -102,7 +103,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       current_sensor: "sensor.temperatura_termostato",
       pump_switch: "switch.socket_garaje_aerotermia_bomba",
       inertia_sensor: "",
-      show_modes: ["off", "cool", "heat"],
+      show_modes: ["off", "cool", "heat", "auto"],
     };
   }
 
@@ -112,7 +113,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     if (!config.thermostat_cool) throw new Error("Falta 'thermostat_cool'");
     if (!config.water_climate) throw new Error("Falta 'water_climate'");
     this.config = {
-      show_modes: ["off", "cool", "heat"],
+      show_modes: ["off", "cool", "heat", "auto"],
       presets: DEFAULT_PRESETS,
       ...config,
     };
@@ -139,6 +140,15 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   private get isOff(): boolean {
     return this.modeState === MODE_OPTION.off;
   }
+  /** El LG decide por su cuenta. La tarjeta lo muestra, pero no hay termostato
+   *  al mando: el dial no representa nada y se deshabilita. */
+  private get isAuto(): boolean {
+    return this.modeState === MODE_OPTION.auto;
+  }
+  /** El dial solo tiene sentido cuando manda un termostato de suelo. */
+  private get dialDisabled(): boolean {
+    return this.isOff || this.isAuto;
+  }
   private get activeThermostatId(): string {
     return this.modeState === MODE_OPTION.cool
       ? this.config.thermostat_cool
@@ -149,6 +159,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
   private get accentColor(): string {
     if (this.isOff) return "#6f7176";
+    if (this.isAuto) return "#43a047";
     // Colores nativos de HA (hex concreto para que se vean siempre): azul frio / naranja calor
     return this.modeState === MODE_OPTION.cool ? "#2b9af9" : "#ff8100";
   }
@@ -210,6 +221,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 
     const actionLabel = this.isOff
       ? "Apagado"
+      : this.isAuto
+      ? "Auto"
       : action === "heating"
       ? "Calentando"
       : action === "cooling"
@@ -228,7 +241,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
         <div class="dial-wrap">
           <svg
             viewBox="0 0 200 200"
-            class="dial ${this.isOff ? "off" : ""}"
+            class="dial ${this.dialDisabled ? "off" : ""}"
             @pointerdown=${this._onPointerDown}
           >
 <defs>
@@ -245,7 +258,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
               </linearGradient>
             </defs>
             <path class="track" d=${arcPath(100, 100, ARC_R, ARC_START, ARC_END)} />
-            ${this.isOff
+            ${this.dialDisabled
               ? nothing
               : svg`
                   <!-- glow difuminado detras del aro -->
@@ -280,7 +293,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
           <div class="dial-center">
             <div class="preset-name">${actionLabel}</div>
             <div class="target">
-              ${this.isOff
+              ${this.dialDisabled
                 ? html`<span class="int">--</span>`
                 : html`<span class="int">${intPart}</span
                     ><span class="frac"
@@ -304,14 +317,14 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
             <div class="adjust">
               <button
                 class="round"
-                ?disabled=${this.isOff}
+                ?disabled=${this.dialDisabled}
                 @click=${() => this._stepThermostat(-1)}
               >
                 <ha-icon icon="mdi:minus"></ha-icon>
               </button>
               <button
                 class="round"
-                ?disabled=${this.isOff}
+                ?disabled=${this.dialDisabled}
                 @click=${() => this._stepThermostat(1)}
               >
                 <ha-icon icon="mdi:plus"></ha-icon>
@@ -424,7 +437,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
 
   private _renderModes(): TemplateResult {
-    const modes = this.config.show_modes ?? ["off", "cool", "heat"];
+    const modes = this.config.show_modes ?? ["off", "cool", "heat", "auto"];
     return html`
       <div class="modes">
         ${modes.map((m) => {
@@ -460,7 +473,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     });
   }
   private _stepThermostat(dir: number): void {
-    if (this.isOff) return;
+    if (this.dialDisabled) return;
     this._step(this.activeThermostatId, dir);
   }
   private _stepWater(dir: number): void {
@@ -482,7 +495,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 
   // --- arrastre del dial ---
   private _onPointerDown(e: PointerEvent): void {
-    if (this.isOff) return;
+    if (this.dialDisabled) return;
     const svgEl = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
     if (!svgEl) return;
     const rect = svgEl.getBoundingClientRect();

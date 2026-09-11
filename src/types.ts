@@ -38,4 +38,8 @@ export const MODE_OPTION = {
   off: "off",
   cool: "frio",
   heat: "calor",
+  /** El motor LG decide calor o frio por su cuenta. El suelo no lo gobierna
+   *  ningun termostato: circula de forma continua con cortes de seguridad,
+   *  porque el LG no expone hvac_action y HA no puede saber el sentido. */
+  auto: "auto",
 } as const;

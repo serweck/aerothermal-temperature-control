@@ -4,6 +4,32 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.4.6] - 2026-09-11
+
+### Anadido
+- **Cuarto modo: `auto`.** El motor LG admite un modo `auto` en el que decide el mismo si calienta o
+  enfria. Hasta ahora la tarjeta no sabia representarlo: solo conocia `off`, `calor` y `frio`, asi
+  que si la maquina entraba en `auto` la tarjeta se quedaba como estuviera, sin reflejarlo.
+
+  Ahora `auto` es una opcion mas del `input_select` y de la tarjeta, con su icono
+  (`mdi:autorenew`), su etiqueta y su color verde, distinto del azul de frio y del naranja de calor.
+
+### Cambiado
+- **En `auto` el dial se deshabilita**, igual que apagado: aro sin colorear, objetivo en `--`,
+  botones `+`/`-` inactivos y sin arrastre. No es una limitacion cosmetica sino la realidad del
+  sistema: en `auto` no manda ningun `generic_thermostat` —los dos quedan apagados para no pelearse
+  por el rele compartido— asi que no hay temperatura objetivo que ajustar. Del suelo se encarga una
+  automatizacion que lo hace circular de forma continua con cortes de seguridad.
+- **Los presets si se pueden tocar en `auto`.** Ojo con lo que hacen: como los termostatos estan
+  apagados, cambiar el preset **no mueve nada en ese momento**; solo deja fijada la temperatura
+  objetivo para cuando se salga de `auto`.
+
+### Notas de instalacion
+- Requiere anadir `auto` a las opciones del `input_select` de modo, y las automatizaciones
+  correspondientes. Ver `ha-config/` y `docs/superpowers/specs/`.
+- Si la tarjeta tiene `show_modes` escrito a mano en el YAML del dashboard, hay que anadir `auto`
+  a esa lista; el valor por defecto ya lo incluye.
+
 ## [1.4.5] - 2026-09-11
 
 ### Corregido
