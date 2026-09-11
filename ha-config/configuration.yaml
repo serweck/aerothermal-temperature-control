@@ -58,3 +58,44 @@ input_select:
       - "off"
       - calor
       - frio
+
+# =====================================================================
+#  Punto de rocio interior — corte de seguridad de la circulacion en auto
+#
+#  OJO: en la instalacion real esto NO vive aqui, sino como *helper de
+#  plantilla* creado por la UI (Ajustes > Ayudantes > Plantilla > Sensor),
+#  creado el 2026-09-11. Se documenta aqui para que el repo describa el
+#  sistema completo. Si algun dia se pasa a YAML, borrar antes el helper
+#  para no acabar con dos entidades.
+#
+#  Punto de rocio POR ESTANCIA (formula de Magnus), quedandose con el
+#  MAXIMO: manda la habitacion peor. Trece estancias interiores; quedan
+#  fuera las exteriores, el balcon, el garaje y el sotano, que no son
+#  zonas de suelo radiante.
+# =====================================================================
+
+template:
+  - sensor:
+      - name: "Punto de rocio interior"
+        unique_id: punto_de_rocio_interior
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: >
+          {% set rooms = [
+            '05_entrada','06_cocina','07_bano_planta_baja','08_comedor','09_salon',
+            '10_despacho','11_habitacion_izquierda','12_habitacion_derecha',
+            '13_habitacion_centro','14_pasillo','15_bano_invitados',
+            '16_bano_principal','17_habitacion_principal'
+          ] %}
+          {% set ns = namespace(td = -999.0) %}
+          {% for r in rooms %}
+            {% set t = states('sensor.temperature_sensor_' ~ r ~ '_temperature') | float(-999) %}
+            {% set h = states('sensor.temperature_sensor_' ~ r ~ '_humidity') | float(-999) %}
+            {% if t > -900 and h > 0 %}
+              {% set g = log(h / 100) + (17.27 * t) / (237.7 + t) %}
+              {% set d = (237.7 * g) / (17.27 - g) %}
+              {% if d > ns.td %}{% set ns.td = d %}{% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.td | round(1) if ns.td > -900 else none }}
