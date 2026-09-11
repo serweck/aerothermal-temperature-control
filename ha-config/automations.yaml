@@ -105,3 +105,83 @@
     - service: input_select.select_option
       target: { entity_id: input_select.aerotermia_modo }
       data: { option: "off" }
+
+# ---------------------------------------------------------------------
+# C) Sincronia inversa: si el LG cambia de modo desde su propio panel,
+#    la tarjeta lo refleja. El modo auto tiene su propia opcion en el
+#    input_select, asi que salir de auto es un cambio de estado real y
+#    la automatizacion A puede apagar el rele por su camino normal.
+#
+#    El "to:" es explicito a proposito: deja fuera unavailable y unknown,
+#    para que un corte de la nube de LG no vacie la tarjeta. De eso ya se
+#    ocupa la automatizacion B a los 30 s.
+# ---------------------------------------------------------------------
+- id: aerotermia_sincronia_lg
+  alias: "Aerotermia - Sincronia: el LG manda"
+  mode: queued
+  max: 10
+  trigger:
+    - platform: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      to: ["heat", "cool", "auto", "off"]
+  action:
+    - service: input_select.select_option
+      target: { entity_id: input_select.aerotermia_modo }
+      data:
+        option: >
+          {% set m = states('climate.bomba_de_calor_aire_agua_2') %}
+          {{ 'calor' if m == 'heat' else 'frio' if m == 'cool'
+             else 'auto' if m == 'auto' else 'off' }}
+
+# ---------------------------------------------------------------------
+# D) Dueña del estado auto: en auto no manda ningun termostato (se
+#    pelearian por el rele compartido) y el suelo circula de forma
+#    continua, con tres cortes de seguridad.
+#
+#    El sentido (calor o frio) se deduce comparando la impulsion con la
+#    temperatura de la casa, porque el LG no expone hvac_action.
+# ---------------------------------------------------------------------
+- id: aerotermia_auto_circulacion
+  alias: "Aerotermia - Auto: circulacion del suelo con corte de seguridad"
+  mode: single
+  max_exceeded: silent
+  trigger:
+    - platform: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+    - platform: state
+      entity_id:
+        - sensor.bomba_de_calor_aire_agua_temperatura_de_salida
+        - sensor.temperatura_termostato
+        - sensor.punto_de_rocio_interior
+    - platform: time_pattern
+      minutes: "/5"
+  condition:
+    - condition: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      state: auto
+  action:
+    - service: climate.set_hvac_mode
+      target:
+        entity_id:
+          - climate.suelo_radiante_calor
+          - climate.suelo_radiante_frio
+      data: { hvac_mode: "off" }
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: >
+                {% set salida = states('sensor.bomba_de_calor_aire_agua_temperatura_de_salida') | float(-999) %}
+                {% set rocio = states('sensor.punto_de_rocio_interior') | float(999) %}
+                {% set zona = states('sensor.temperatura_termostato') | float(-999) %}
+                {% set calentando = salida > zona + 2 %}
+                {% set enfriando = salida < zona - 2 %}
+                {{ salida < rocio + 2
+                   or salida > 45
+                   or (calentando and zona > 26)
+                   or (enfriando and zona < 21) }}
+          sequence:
+            - service: switch.turn_off
+              target: { entity_id: switch.socket_garaje_aerotermia_bomba }
+      default:
+        - service: switch.turn_on
+          target: { entity_id: switch.socket_garaje_aerotermia_bomba }
