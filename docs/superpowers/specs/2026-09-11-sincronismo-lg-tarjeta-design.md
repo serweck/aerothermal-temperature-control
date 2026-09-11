@@ -118,18 +118,22 @@ Tres cambios, ninguno en las ramas de `calor` y `frio`:
 2. **Rama `auto` nueva**, antes de la rama por defecto: si el modo es `off` **y** el LG está en
    `auto`, apagar los dos termostatos y **no tocar el relé**, en vez de apagarlo todo.
 
-   > El relé en `auto` tiene **un solo dueño: la automatización D**. Si A lo encendiese al entrar en
-   > `auto` y D lo apagase acto seguido por un corte activo, el relé daría un pulso inútil. D ya se
-   > dispara con el cambio de estado del LG, así que enciende ella misma en cuanto entra en `auto`
-   > y las condiciones lo permiten.
+   > **El estado `auto` tiene un solo dueño: la automatización D.** D apaga los termostatos y
+   > gobierna el relé; A, en su rama `auto`, se limita a no apagar el LG y a no tocar el relé.
+   >
+   > Esto no es solo elegancia: hace que D sea **autosuficiente**, y eso importa al desplegar. D se
+   > dispara con el cambio de estado del LG, no con el del `input_select`, así que funciona aunque C
+   > todavía no exista. Si D dependiera de que A le apagase los termostatos, habría una ventana entre
+   > desplegar D y desplegar C en la que los termostatos seguirían vivos peleándose con D por el relé.
+   > Con D autosuficiente, el orden de despliegue **A → D → C** es seguro en cada paso.
 3. **Guarda en la rama por defecto** (D5): solo manda `hvac_mode: "off"` al LG y apaga el relé si el
    LG **no** está en `auto`.
 
-### 4.4 Automatización D (nueva): el corte
+### 4.4 Automatización D (nueva): dueña del estado `auto`
 
 ```yaml
-- id: aerotermia_auto_corte
-  alias: "Aerotermia - Auto: corte de seguridad de la circulacion"
+- id: aerotermia_auto_circulacion
+  alias: "Aerotermia - Auto: circulacion del suelo con corte de seguridad"
   mode: single
   trigger:
     - platform: state
@@ -146,6 +150,14 @@ Tres cambios, ninguno en las ramas de `calor` y `frio`:
       entity_id: climate.bomba_de_calor_aire_agua_2
       state: "auto"
   action:
+    # En auto no manda ninguno de los dos termostatos: si no, se pelean por el rele.
+    # Lo hace D y no A para que D sea autosuficiente (ver 4.3).
+    - service: climate.set_hvac_mode
+      target:
+        entity_id:
+          - climate.suelo_radiante_calor
+          - climate.suelo_radiante_frio
+      data: { hvac_mode: "off" }
     - choose:
         - conditions:
             - condition: template
@@ -188,6 +200,13 @@ sensor cae, y es el menos peligroso de los tres.
 
 Sigue cubriendo `unavailable`, que C ignora a propósito. Su rama de `off` queda redundante con C,
 pero es inocua: ambas convergen al mismo estado.
+
+### 4.6 Nota sobre el esquema YAML
+
+El YAML de este documento usa el esquema clásico (`trigger:` / `service:`), que es el del
+`ha-config/automations.yaml` del repo. La instalación real ya está migrada al esquema nuevo
+(`triggers:` / `actions:` / `action:`), que es el que devuelve el editor de la UI y el que aparece en
+el plan de implementación. Home Assistant acepta los dos; no hay diferencia de comportamiento.
 
 ## 5. Análisis de bucles
 
