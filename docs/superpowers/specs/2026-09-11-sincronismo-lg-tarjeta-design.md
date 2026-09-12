@@ -89,6 +89,56 @@ Antes, tres ejecuciones de C con `execution: finished`. Despues, dos con
 > Home Assistant es lo que permite separarlas, y hay que usarlo desde el principio, no cuando el
 > sistema ya esta oscilando.
 
+
+## 0.2 Revision 4 — reenviar un modo que el LG ya tiene no es inofensivo
+
+`lg_thinq` **publica un estado intermedio espurio** mientras una orden viaja a la nube. Medido dos
+veces: se pidio `cool` y la entidad paso por `auto` antes de asentar; se pidio `heat` y paso por
+`cool`. Si detras llega la confirmacion, el estado falso se corrige solo. Si **no** llega nada detras
+—porque la orden era redundante— **el estado falso se queda puesto**.
+
+Eso provoco el episodio del 11/09 a las 18:53: el usuario puso `heat` desde la ventana del LG, C lo
+reflejo en la tarjeta, y A le **reenvio `heat`** a una maquina que ya estaba en `heat`. Ese reenvio
+genero su intermedio falso, `cool`, y ahi se quedo.
+
+**Arreglo:** las cuatro ramas de A (`calor`, `frio`, `auto` y `default`) envuelven la orden al LG en
+un `if not state`, de modo que solo se manda cuando el LG **no** tiene ya ese modo.
+
+```yaml
+- if:
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: climate.bomba_de_calor_aire_agua_2
+          state: heat
+  then:
+    - action: climate.set_hvac_mode
+      target: { entity_id: climate.bomba_de_calor_aire_agua_2 }
+      data: { hvac_mode: heat }
+```
+
+**Verificado** reproduciendo el escenario exacto: traza `sequence/2/if -> false`
+(`state: heat`, `wanted_state: heat`), el `then` no se ejecuta, y el LG sigue en `heat` pasados 45 s.
+
+> [!warning] La leccion general
+> Una orden idempotente en la teoria no lo es contra un dispositivo **en la nube**: la ida y vuelta
+> tiene efectos observables propios. La idempotencia es una propiedad del canal, no solo de la orden.
+
+### Diagnostico erroneo que esto corrige
+
+Durante un rato se atribuyo este comportamiento a que **la maquina rechazaba el modo calor**. Era
+falso: probado en aislamiento —A y C deshabilitadas, nadie tocando— el LG acepto `heat` y lo mantuvo
+mas de dos minutos. La conclusion se habia sacado de **un solo dato tomado en medio de un episodio
+caotico** con tres actores moviendo cosas a la vez.
+
+### La reconciliacion de 30 s queda descartada
+
+Se habia propuesto una automatizacion que, ante discrepancia sostenida entre el LG y la tarjeta,
+diera la razon a la maquina. Se descarta: nacio del diagnostico erroneo de arriba. Una vez cortado el
+reenvio redundante le queda **un solo** caso —una orden perdida de verdad, no observada aun— al
+precio de una cuarta automatizacion vigilando. Si algun dia se ve una discrepancia real, se retoma
+con el caso delante.
+
 ## 1. El problema
 
 La tarjeta es un espejo de `input_select.aerotermia_modo`, y ese `input_select` solo lo escribe la
@@ -329,6 +379,5 @@ Cada prueba se valida con la **cadena de contextos** (`user_id` y `parent_id`), 
   (que el botón de apagado llame a `climate.set_hvac_mode` sobre `water_climate` cuando el LG esté en
   `auto`) y sacar versión. **Pendiente de decidir.**
 - **Umbrales 24 °C y 45 °C**: propuestos, no validados contra la instalación.
-- **`min_cycle_duration` de la bomba**: los `generic_thermostat` son hoy helpers de UI y no lo
-  tienen; el YAML del repo documentaba 10 min. Asunto independiente de este diseño, pero afecta al
-  mismo relé.
+- ~~**`min_cycle_duration` de la bomba**~~: **resuelto el 12/09.** Repuesto a 10 min en los dos
+  termostatos por el formulario del helper ("Tiempo minimo de funcionamiento").
