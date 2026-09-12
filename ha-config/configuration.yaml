@@ -1,4 +1,23 @@
 # =====================================================================
+#  OJO: los dos generic_thermostat de abajo NO viven ya en este fichero.
+#  En la instalacion real son *helpers de UI* (config entries
+#  01KXAJ6GXFXPA3M906940M5H62 y 01KXAJ8CQQTF42H568DV4M7B4N) y su
+#  configuracion habia divergido de lo que aqui se documentaba. Estado
+#  real comprobado el 2026-09-12:
+#
+#    | ajuste              | este fichero        | instalacion real |
+#    |---------------------|---------------------|------------------|
+#    | presets             | + home, sleep       | away/comfort/eco |
+#    | tolerancias         | 0,3                 | 0,5              |
+#    | min_cycle_duration  | 10 min              | 10 min  <- repuesto |
+#    | precision           | 0,5                 | no existe        |
+#
+#  El min_cycle_duration faltaba en la instalacion y se repuso por la UI
+#  (Ayudantes > el termostato > Opciones > "Tiempo minimo de
+#  funcionamiento" = 0:10:00) en los dos termostatos.
+# =====================================================================
+
+# =====================================================================
 #  Aerotermia - Backend Home Assistant
 #  Pega estos bloques en tu configuration.yaml (o usa packages).
 #  Entidades reales:
