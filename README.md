@@ -25,6 +25,11 @@ La inteligencia (conmutación calor/frío, presets, modos automáticos, segurida
   el preset sigue marcado (necesita usuario administrador; si no, es un cambio normal y el preset
   pasa a `none`).
 
+**[▶ Probar la demo](https://serweck.github.io/aerothermal-temperature-control/)**: la tarjeta real sobre una
+casa simulada, en el navegador y sin Home Assistant. Puedes cambiar de modo, desplegar el
+motor, tocar presets y candado, y ver en un registro qué órdenes mandaría a HA. Se publica sola
+en GitHub Pages con cada cambio en `main` (`.github/workflows/demo.yml`).
+
 ![Referencia visual](componente-actual.png)
 
 ---
@@ -164,6 +169,7 @@ npm install      # dependencias
 npm run build    # genera dist/aerothermal-temperature-control.js
 npm run watch    # recompila al guardar
 npm run typecheck
+npm run demo     # build + demo en _site/index.html (la misma que publica GitHub Pages)
 ```
 
 Código en `src/` (LitElement + TypeScript). El editor visual está en `src/editor.ts`.

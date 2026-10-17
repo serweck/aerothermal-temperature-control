@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Tarjeta Aerotermia · demo</title>
+<meta name="description" content="Demo interactiva de la tarjeta Lovelace aerothermal-temperature-control para Home Assistant, sobre una casa simulada.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Roboto:wght@300;400;500&display=swap">
+<style>
+  /* Banco de pruebas: la tarjeta real a la izquierda, a la derecha la casa simulada y el registro de lo que pediría a HA. */
+  :root {
+    --bg: #eef1f4;
+    --panel: #ffffff;
+    --fg: #1d2329;
+    --muted: #5c6670;
+    --line: #d5dbe1;
+    --accent: #e8730a;
+    --accent-soft: #fdebdc;
+    --cool: #1f7fd6;
+    --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --font-ha: Roboto, "Segoe UI", system-ui, sans-serif;
+    /* variables de tema de Home Assistant que lee la tarjeta */
+    --primary-text-color: #1d2329;
+    --secondary-text-color: #69737d;
+    --divider-color: #dfe3e8;
+    --secondary-background-color: #eef1f4;
+    --card-background-color: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121417; --panel: #1b1e22; --fg: #e4e7eb; --muted: #98a1aa; --line: #2c3137;
+      --accent: #ff8f2e; --accent-soft: #3a2614; --cool: #5cb2ff;
+      --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b; --divider-color: #38393d;
+      --secondary-background-color: #2a2a2a; --card-background-color: #1c1c1c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121417; --panel: #1b1e22; --fg: #e4e7eb; --muted: #98a1aa; --line: #2c3137;
+    --accent: #ff8f2e; --accent-soft: #3a2614; --cool: #5cb2ff;
+    --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b; --divider-color: #38393d;
+    --secondary-background-color: #2a2a2a; --card-background-color: #1c1c1c;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+  .wrap {
+    max-width: 1080px; margin: 0 auto;
+    padding-block: 28px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 24px;
+  }
+  header { display: grid; gap: 6px; }
+  header h1 { margin: 0; font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .ver { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); letter-spacing: 0.02em; }
+  header p { margin: 0; color: var(--muted); max-width: 68ch; }
+  header a { color: var(--accent); }
+  .grid { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .stage { display: grid; gap: 10px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+  .stage-label, .panel h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; margin: 0; }
+  aerothermal-temperature-control { display: block; font-family: var(--font-ha); }
+  .side { display: grid; gap: 16px; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+  .checks { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .checks li::marker { color: var(--accent); font-weight: 600; }
+  .checks b { font-weight: 600; }
+  .sim { display: grid; gap: 14px; }
+  .sim-row { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+  @media (max-width: 460px) { .sim-row { grid-template-columns: minmax(0, 1fr) auto; } .sim-row input[type=range] { grid-column: 1 / -1; grid-row: 2; } }
+  .sim-row label { font-size: 0.9rem; }
+  .sim-row output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.85rem; min-width: 4.5rem; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 0.85rem; border: 0; background: transparent; color: var(--muted); padding: 5px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: transparent; color: var(--fg); padding: 5px 12px; border-radius: 8px; cursor: pointer; justify-self: start; }
+  .btn:hover { border-color: var(--accent); }
+  .presets-now { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 340px; overflow: auto; font-family: var(--font-mono); font-size: 0.78rem; }
+  .log li { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--bg); overflow-wrap: anywhere; }
+  .log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .log .svc { color: var(--accent); font-weight: 500; }
+  .log .flow { color: var(--cool); font-weight: 500; }
+  .log .empty { display: block; background: transparent; color: var(--muted); font-family: var(--font-ui); font-size: 0.85rem; padding: 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Tarjeta Aerotermia <span class="ver">v__VERSION__</span></h1>
+    <p>La tarjeta real, tal cual se instala por HACS, sobre una casa simulada. Nada de lo que toques sale de esta página: cada orden que mandaría a Home Assistant se apunta en el registro. <a href="https://github.com/serweck/aerothermal-temperature-control">Código e instalación en GitHub</a>.</p>
+  </header>
+
+  <div class="grid">
+    <section class="stage" aria-label="Tarjeta">
+      <p class="stage-label">Tarjeta</p>
+      <div id="card-slot"></div>
+    </section>
+
+    <div class="side">
+      <section class="panel">
+        <h2>Qué revisar</h2>
+        <ol class="checks">
+          <li><b>Apagada:</b> pulsa el botón de apagado, el primero de la barra de modos. Queda una sola fila con la temperatura y los modos.</li>
+          <li><b>Calor:</b> candado arriba a la derecha y la línea «Agua · Impulsión» con los iconos de motor, bomba, modos automáticos y el preset puesto (el sofá es Confort).</li>
+          <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco) y, en calor, «Modos automáticos» con su interruptor, que enciende y apaga las dos automatizaciones.</li>
+          <li><b>Temperatura en el preset:</b> con Confort marcado, pulsa + o − en el dial. A los 1,2 s se guarda en el preset y Confort sigue marcado.</li>
+          <li><b>Frío y auto:</b> los presets siguen en el desplegable, pero el interruptor y el icono de calendario no salen.</li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Simular la casa</h2>
+        <div class="sim">
+          <div class="sim-row">
+            <label for="house">Temperatura de casa</label>
+            <input id="house" type="range" min="16" max="28" step="0.05" value="21.4">
+            <output id="house-out" for="house">21,4 °C</output>
+          </div>
+          <div class="sim-row">
+            <label id="lg-label">Motor LG</label>
+            <span></span>
+            <div class="seg" role="group" aria-labelledby="lg-label">
+              <button id="lg-on" type="button">activo</button><button id="lg-off" type="button">reposo</button>
+            </div>
+          </div>
+          <div class="sim-row">
+            <label id="pump-label">Bomba del suelo</label>
+            <span></span>
+            <div class="seg" role="group" aria-labelledby="pump-label">
+              <button id="pump-on" type="button">en marcha</button><button id="pump-off" type="button">parada</button>
+            </div>
+          </div>
+          <p class="presets-now" id="presets-now"></p>
+          <button class="btn" id="reset" type="button">Volver al estado inicial</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="log-head">
+          <h2>Lo que pediría a Home Assistant</h2>
+          <button class="btn" id="clear" type="button">Vaciar</button>
+        </div>
+        <ul class="log" id="log" aria-live="polite"></ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* --- Sustitutos de los componentes de Home Assistant que usa la tarjeta --- */
+const ICONS = __ICONS__;
+
+customElements.define("ha-card", class extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML =
+      '<style>:host{display:block;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:12px;color:var(--primary-text-color);overflow:hidden}</style><slot></slot>';
+  }
+});
+
+customElements.define("ha-icon", class extends HTMLElement {
+  static get observedAttributes() { return ["icon"]; }
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" }).innerHTML =
+      '<style>:host{display:inline-flex;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);flex:none}svg{width:100%;height:100%;fill:currentColor}</style><svg viewBox="0 0 24 24"><path></path></svg>';
+  }
+  attributeChangedCallback() { this.shadowRoot.querySelector("path").setAttribute("d", ICONS[this.getAttribute("icon")] || ""); }
+  set icon(v) { this.setAttribute("icon", v); }
+});
+
+customElements.define("ha-switch", class extends HTMLElement {
+  constructor() {
+    super();
+    this._checked = false;
+    this.attachShadow({ mode: "open" }).innerHTML =
+      '<style>:host{display:inline-block;cursor:pointer}button{all:unset;display:block;width:40px;height:22px;border-radius:11px;background:var(--divider-color);position:relative;transition:background .15s}button::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:transform .15s}:host([checked]) button{background:#ff8100}:host([checked]) button::after{transform:translateX(18px)}button:focus-visible{outline:2px solid #ff8100;outline-offset:2px}</style><button role="switch" aria-label="Modos automáticos"></button>';
+    this.shadowRoot.querySelector("button").addEventListener("click", () => {
+      this.checked = !this.checked;
+      this.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    });
+  }
+  get checked() { return this._checked; }
+  set checked(v) {
+    this._checked = !!v;
+    this.toggleAttribute("checked", this._checked);
+    this.shadowRoot.querySelector("button").setAttribute("aria-checked", String(this._checked));
+  }
+});
+</script>
+
+<script type="module">
+/* --- La tarjeta real (dist de la v1.8.0, sin tocar) --- */
+__CARD_JS__
+</script>
+
+<script type="module">
+/* --- Casa simulada: el estado que veria la tarjeta y lo que haria HA con cada orden --- */
+const AUTOS = ["automation.aerotermia_modos_automaticos_calor", "automation.aerotermia_aprender_ritmo_de_calentamiento"];
+const CONFIG = {
+  type: "custom:aerothermal-temperature-control",
+  name: "Aerotermia",
+  mode_select: "input_select.aerotermia_modo",
+  thermostat_heat: "climate.suelo_radiante_calor",
+  thermostat_cool: "climate.suelo_radiante_frio",
+  water_climate: "climate.bomba_de_calor_aire_agua_2",
+  pump_switch: "switch.socket_garaje_aerotermia_bomba",
+  current_sensor: "sensor.temperatura_termostato",
+  inertia_sensor: "",
+  presets: [
+    { label: "Fuera", preset: "away", icon: "mdi:home-export-outline" },
+    { label: "Confort", preset: "comfort", icon: "mdi:sofa" },
+    { label: "Eco", preset: "eco", icon: "mdi:leaf" },
+  ],
+  show_modes: ["off", "cool", "heat", "auto"],
+  lock_entity: "input_boolean.bloquear_termostato",
+  auto_mode_automations: AUTOS,
+};
+
+const initial = () => ({
+  mode: "calor",
+  lock: false,
+  autos: { [AUTOS[0]]: false, [AUTOS[1]]: false },
+  house: 21.4,
+  lgActive: true,
+  pumpOn: true,
+  water: 35,
+  inertia: 33.5,
+  reloading: null,
+  therm: {
+    "climate.suelo_radiante_calor": { mode: "heat", preset: "comfort", target: 22, min: 15, max: 28, presets: { away: 15, comfort: 22, eco: 20 } },
+    "climate.suelo_radiante_frio": { mode: "cool", preset: "comfort", target: 23, min: 20, max: 30, presets: { away: 28, comfort: 23, eco: 25 } },
+  },
+});
+let S = initial();
+
+const lgState = { off: "off", calor: "heat", frio: "cool", auto: "auto" };
+function buildStates() {
+  const st = {};
+  const put = (id, state, attributes = {}) => { st[id] = { entity_id: id, state, attributes, last_changed: "", last_updated: "", context: {} }; };
+  put("input_select.aerotermia_modo", S.mode, { options: ["off", "calor", "frio", "auto"] });
+  put("sensor.temperatura_termostato", S.house.toFixed(2));
+  put("switch.socket_garaje_aerotermia_bomba", S.pumpOn ? "on" : "off");
+  put("input_boolean.bloquear_termostato", S.lock ? "on" : "off");
+  for (const a of AUTOS) put(a, S.autos[a] ? "on" : "off");
+  for (const [id, t] of Object.entries(S.therm)) {
+    if (S.reloading === id) { put(id, "unavailable", {}); continue; }
+    const active = (t.mode === "heat" && S.mode === "calor") || (t.mode === "cool" && S.mode === "frio");
+    put(id, active ? t.mode : "off", {
+      hvac_modes: [t.mode, "off"], min_temp: t.min, max_temp: t.max, target_temp_step: 0.1,
+      preset_modes: ["none", "away", "comfort", "eco"], preset_mode: t.preset,
+      temperature: t.target, current_temperature: S.house,
+      hvac_action: active ? (S.pumpOn ? (t.mode === "heat" ? "heating" : "cooling") : "idle") : "off",
+    });
+  }
+  const lgOn = S.mode !== "off";
+  put("climate.bomba_de_calor_aire_agua_2", lgState[S.mode], {
+    temperature: lgOn ? S.water : null, current_temperature: S.inertia,
+    hvac_action: lgOn && S.lgActive ? (S.mode === "frio" ? "cooling" : "heating") : "idle",
+  });
+  return st;
+}
+
+/* --- Registro --- */
+const logEl = document.getElementById("log");
+function log(kind, text) {
+  const li = document.createElement("li");
+  const t = new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  li.innerHTML = `<time>${t}</time><span><span class="${kind}"></span> <span class="txt"></span></span>`;
+  li.querySelector("." + kind).textContent = kind === "svc" ? "acción" : kind === "flow" ? "opciones" : "info";
+  li.querySelector(".txt").textContent = text;
+  logEl.querySelector(".empty")?.remove();
+  logEl.prepend(li);
+}
+function logEmpty() { logEl.innerHTML = '<li class="empty">Todavía nada. Toca la tarjeta.</li>'; }
+logEmpty();
+
+/* --- Servicios: lo que haria HA --- */
+function callService(domain, service, data = {}) {
+  const ids = [].concat(data.entity_id || []);
+  const extra = Object.entries(data).filter(([k]) => k !== "entity_id").map(([k, v]) => `${k}: ${v}`).join(", ");
+  log("svc", `${domain}.${service} → ${ids.join(", ")}${extra ? " · " + extra : ""}`);
+  for (const id of ids) {
+    if (domain === "input_select") S.mode = data.option;
+    else if (domain === "input_boolean" && service === "toggle") S.lock = !S.lock;
+    else if (domain === "automation") S.autos[id] = service === "turn_on";
+    else if (domain === "climate") {
+      if (id === "climate.bomba_de_calor_aire_agua_2") { if (service === "set_temperature") S.water = data.temperature; continue; }
+      const t = S.therm[id];
+      if (service === "set_temperature") {
+        t.target = data.temperature;
+        // Como generic_thermostat: si la temperatura no es la de ningun preset, queda en "none"
+        t.preset = Object.keys(t.presets).find((p) => t.presets[p] === data.temperature) || "none";
+      } else if (service === "set_preset_mode") {
+        t.preset = data.preset_mode;
+        if (t.presets[t.preset] != null) t.target = t.presets[t.preset];
+      }
+    }
+  }
+  render();
+  return Promise.resolve();
+}
+
+/* --- Options flow del generic_thermostat (paso init y paso presets) --- */
+const flows = {};
+let flowSeq = 0;
+const entryOf = (entry) => entry.replace(/^entry:/, "");
+function callApi(method, path, body) {
+  if (method === "POST" && path === "config/config_entries/options/flow") {
+    const id = "f" + ++flowSeq;
+    flows[id] = entryOf(body.handler);
+    log("flow", `abre las opciones de ${flows[id]}`);
+    return Promise.resolve({ type: "form", flow_id: id, step_id: "init", data_schema: [
+      { name: "ac_mode", description: { suggested_value: flows[id].endsWith("frio") } },
+      { name: "heater", description: { suggested_value: "switch.socket_garaje_aerotermia_bomba" } },
+      { name: "min_cycle_duration", description: { suggested_value: { hours: 0, minutes: 10, seconds: 0 } } },
+    ] });
+  }
+  const m = path.match(/^config\/config_entries\/options\/flow\/(f\d+)$/);
+  if (m && method === "DELETE") { delete flows[m[1]]; return Promise.resolve({}); }
+  if (m && method === "POST") {
+    const ent = flows[m[1]];
+    const t = S.therm[ent];
+    if (!body.away_temp && !body.comfort_temp && !body.eco_temp) {
+      return Promise.resolve({ type: "form", flow_id: m[1], step_id: "presets", data_schema:
+        Object.entries(t.presets).map(([k, v]) => ({ name: `${k}_temp`, description: { suggested_value: v } })) });
+    }
+    const changed = Object.keys(t.presets).filter((k) => body[`${k}_temp`] !== t.presets[k]);
+    for (const k of Object.keys(t.presets)) t.presets[k] = body[`${k}_temp`];
+    delete flows[m[1]];
+    log("flow", `guarda ${changed.map((k) => `${k}_temp = ${t.presets[k]}`).join(", ") || "sin cambios"} y recarga el termostato`);
+    // HA recarga el termostato: un instante sin disponible, despues vuelve con su preset y su objetivo
+    S.reloading = ent; render();
+    return new Promise((res) => setTimeout(() => { S.reloading = null; render(); res({ type: "create_entry" }); }, 450));
+  }
+  return Promise.reject(new Error("no simulado: " + path));
+}
+function callWS(msg) {
+  if (msg.type === "config/entity_registry/get") return Promise.resolve({ entity_id: msg.entity_id, config_entry_id: "entry:" + msg.entity_id });
+  return Promise.reject(new Error("no simulado: " + msg.type));
+}
+
+/* --- Montaje --- */
+const card = document.createElement("aerothermal-temperature-control");
+card.setConfig(CONFIG);
+document.getElementById("card-slot").appendChild(card);
+card.addEventListener("hass-more-info", (e) => log("info", `abriría el histórico de ${e.detail.entityId}`));
+
+const house = document.getElementById("house");
+const houseOut = document.getElementById("house-out");
+const presetsNow = document.getElementById("presets-now");
+const fmt = (n) => String(Math.round(n * 100) / 100).replace(".", ",");
+function render() {
+  card.hass = { states: buildStates(), callService, callApi, callWS, user: { is_admin: true }, language: "es" };
+  house.value = S.house;
+  houseOut.textContent = fmt(S.house) + " °C";
+  for (const [on, off, v] of [["lg-on", "lg-off", S.lgActive], ["pump-on", "pump-off", S.pumpOn]]) {
+    document.getElementById(on).setAttribute("aria-pressed", String(v));
+    document.getElementById(off).setAttribute("aria-pressed", String(!v));
+  }
+  const h = S.therm["climate.suelo_radiante_calor"].presets, c = S.therm["climate.suelo_radiante_frio"].presets;
+  presetsNow.textContent = `Presets guardados · calor: comfort ${fmt(h.comfort)}, eco ${fmt(h.eco)}, away ${fmt(h.away)} · frío: comfort ${fmt(c.comfort)}, eco ${fmt(c.eco)}, away ${fmt(c.away)}`;
+}
+house.addEventListener("input", () => { S.house = Number(house.value); render(); });
+document.getElementById("lg-on").onclick = () => { S.lgActive = true; render(); };
+document.getElementById("lg-off").onclick = () => { S.lgActive = false; render(); };
+document.getElementById("pump-on").onclick = () => { S.pumpOn = true; render(); };
+document.getElementById("pump-off").onclick = () => { S.pumpOn = false; render(); };
+document.getElementById("reset").onclick = () => { S = initial(); render(); log("info", "estado inicial"); };
+document.getElementById("clear").onclick = logEmpty;
+render();
+</script>
+
+</body>
+</html>

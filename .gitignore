@@ -5,3 +5,4 @@ Thumbs.db
 .cache/
 .rollup.cache/
 *.tsbuildinfo
+_site/
