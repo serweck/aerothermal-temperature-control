@@ -119,3 +119,39 @@ template:
             {% endif %}
           {% endfor %}
           {{ ns.td | round(1) if ns.td > -900 else none }}
+
+# =====================================================================
+#  Modos automaticos en calor (automatizaciones E, F y G)
+#
+#  OJO: en la instalacion real todo esto son *helpers creados por la UI*
+#  el 2026-10-17 (Ajustes > Ayudantes). Se documenta aqui para que el
+#  repo describa el sistema completo; si se pasa a YAML, borrar antes
+#  los helpers para no duplicar entidades.
+#
+#  - input_datetime.aerotermia_hora_confort   08:30  casa lista en confort
+#  - input_datetime.aerotermia_hora_eco       23:00  empieza a bajar
+#  - input_number.aerotermia_ritmo_calentamiento     0,5 °C/h al empezar (aprende F)
+#  - input_number.aerotermia_temperatura_confort     copia del preset comfort (G)
+#  - input_boolean.aerotermia_subida_midiendo        estado de la medicion (F)
+#  - input_datetime.aerotermia_subida_inicio         (fecha y hora)
+#  - input_number.aerotermia_subida_temperatura_inicio
+#  - input_boolean.bloquear_termostato               candado de la tarjeta
+#
+#  Ese dia tambien se cambio eco_temp del termostato de calor a 20 °C
+#  (comfort 22, away 15). Los termostatos reales son helpers de UI.
+#  (Va dentro del mismo bloque template: de arriba.)
+# =====================================================================
+
+  - binary_sensor:
+      - name: "Aerotermia arranque confort"
+        # Hora de confort menos lo que tarda en subir de la temperatura
+        # actual a la de confort con el ritmo aprendido (max. 8 h); en on
+        # hasta la hora de eco. Mientras sube puede apagarse y encenderse:
+        # E solo reacciona al encendido.
+        state: >
+          {% set t = states('sensor.temperatura_termostato') | float(none) %}
+          {% set objetivo = states('input_number.aerotermia_temperatura_confort') | float(22) %}
+          {% set ritmo = states('input_number.aerotermia_ritmo_calentamiento') | float(0.5) %}
+          {% set horas = 0 if t is none or ritmo <= 0 else [0, [(objetivo - t) / ritmo, 8] | min] | max %}
+          {{ today_at(states('input_datetime.aerotermia_hora_confort')) - timedelta(hours=horas)
+             <= now() < today_at(states('input_datetime.aerotermia_hora_eco')) }}

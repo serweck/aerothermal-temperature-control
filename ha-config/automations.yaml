@@ -240,3 +240,180 @@
       default:
         - service: switch.turn_on
           target: { entity_id: switch.socket_garaje_aerotermia_bomba }
+
+# ---------------------------------------------------------------------
+# E) Modos automaticos en calor (creada el 2026-10-17, DESACTIVADA hasta
+#    que se active a mano). Sustituye a las pestañas Termostato y Alarma
+#    de Node-RED, que se borraron ese dia.
+#
+#    Solo cambia el PRESET del termostato de calor; la temperatura de
+#    cada preset vive en el termostato y la tarjeta la guarda ahi (v1.6.0).
+#    comfort desde el arranque calculado para tener la casa lista a la
+#    hora de confort, eco desde la hora de eco. En frio, auto y off no
+#    hace nada, y tampoco con el candado (input_boolean.bloquear_termostato).
+#    La alarma ya no influye: las vacaciones iran aparte.
+# ---------------------------------------------------------------------
+- id: aerotermia_modos_automaticos_calor
+  alias: "Aerotermia - Modos automáticos (calor)"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.aerotermia_arranque_confort
+      to: "on"
+      id: confort
+    - trigger: time
+      at: input_datetime.aerotermia_hora_eco
+      id: eco
+    - trigger: state
+      entity_id: input_select.aerotermia_modo
+      to: calor
+      id: modo
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bloquear_termostato
+      state: "off"
+    - condition: state
+      entity_id: input_select.aerotermia_modo
+      state: calor
+  actions:
+    - choose:
+        - alias: Toca confort
+          conditions:
+            - condition: or
+              conditions:
+                - condition: trigger
+                  id: confort
+                # al pasar a calor: comfort si ya ha arrancado o es de dia
+                - condition: and
+                  conditions:
+                    - condition: trigger
+                      id: modo
+                    - condition: or
+                      conditions:
+                        - condition: state
+                          entity_id: binary_sensor.aerotermia_arranque_confort
+                          state: "on"
+                        - condition: time
+                          after: input_datetime.aerotermia_hora_confort
+                          before: input_datetime.aerotermia_hora_eco
+          sequence:
+            - action: climate.set_preset_mode
+              target: { entity_id: climate.suelo_radiante_calor }
+              data: { preset_mode: comfort }
+      default:
+        - action: climate.set_preset_mode
+          target: { entity_id: climate.suelo_radiante_calor }
+          data: { preset_mode: eco }
+
+# ---------------------------------------------------------------------
+# F) Aprende el ritmo de calentamiento (DESACTIVADA, se activa con E).
+#    Mide cada subida de eco a comfort en calor: desde que se pasa a
+#    comfort hasta superar la temperatura de confort. Nuevo ritmo =
+#    70 % el anterior + 30 % lo medido, entre 0,1 y 3 °C/h. Solo cuenta
+#    subidas de al menos 0,5 °C y 15 min.
+# ---------------------------------------------------------------------
+- id: aerotermia_aprender_ritmo_calentamiento
+  alias: "Aerotermia - Aprender ritmo de calentamiento"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id: climate.suelo_radiante_calor
+      attribute: preset_mode
+      from: eco
+      to: comfort
+      id: inicio
+    - trigger: numeric_state
+      entity_id: sensor.temperatura_termostato
+      above: input_number.aerotermia_temperatura_confort
+      id: llegada
+    - trigger: state
+      entity_id: climate.suelo_radiante_calor
+      attribute: preset_mode
+      from: comfort
+      id: cancelar
+    - trigger: state
+      entity_id: input_select.aerotermia_modo
+      from: calor
+      id: cancelar
+  actions:
+    - choose:
+        - alias: Empieza una subida
+          conditions:
+            - condition: trigger
+              id: inicio
+            - condition: state
+              entity_id: input_select.aerotermia_modo
+              state: calor
+            - condition: template
+              value_template: >-
+                {{ states('sensor.temperatura_termostato') | float(99)
+                   < states('input_number.aerotermia_temperatura_confort') | float(0) - 0.5 }}
+          sequence:
+            - action: input_datetime.set_datetime
+              target: { entity_id: input_datetime.aerotermia_subida_inicio }
+              data: { timestamp: "{{ now().timestamp() }}" }
+            - action: input_number.set_value
+              target: { entity_id: input_number.aerotermia_subida_temperatura_inicio }
+              data: { value: "{{ states('sensor.temperatura_termostato') | float }}" }
+            - action: input_boolean.turn_on
+              target: { entity_id: input_boolean.aerotermia_subida_midiendo }
+        - alias: Llega al confort
+          conditions:
+            - condition: trigger
+              id: llegada
+            - condition: state
+              entity_id: input_boolean.aerotermia_subida_midiendo
+              state: "on"
+          sequence:
+            - variables:
+                horas: >-
+                  {{ (now().timestamp() - state_attr('input_datetime.aerotermia_subida_inicio', 'timestamp') | float(0)) / 3600 }}
+                subida: >-
+                  {{ states('sensor.temperatura_termostato') | float(0)
+                     - states('input_number.aerotermia_subida_temperatura_inicio') | float(0) }}
+            - if:
+                - condition: template
+                  value_template: "{{ horas >= 0.25 and subida >= 0.5 }}"
+              then:
+                - action: input_number.set_value
+                  target: { entity_id: input_number.aerotermia_ritmo_calentamiento }
+                  data:
+                    value: >-
+                      {{ [0.1, [0.7 * states('input_number.aerotermia_ritmo_calentamiento') | float(0.5)
+                                + 0.3 * subida / horas, 3] | min] | max | round(2) }}
+            - action: input_boolean.turn_off
+              target: { entity_id: input_boolean.aerotermia_subida_midiendo }
+        - alias: Se corta la subida
+          conditions:
+            - condition: trigger
+              id: cancelar
+          sequence:
+            - action: input_boolean.turn_off
+              target: { entity_id: input_boolean.aerotermia_subida_midiendo }
+
+# ---------------------------------------------------------------------
+# G) Recuerda la temperatura de confort (ACTIVA: no toca el termostato).
+#    Una plantilla no puede leer la temperatura configurada de un preset,
+#    asi que se copia al input_number cada vez que el termostato de calor
+#    esta en comfort. La usa binary_sensor.aerotermia_arranque_confort.
+# ---------------------------------------------------------------------
+- id: aerotermia_recordar_temperatura_confort
+  alias: "Aerotermia - Recordar temperatura de confort"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id: climate.suelo_radiante_calor
+      attribute: temperature
+    - trigger: state
+      entity_id: climate.suelo_radiante_calor
+      attribute: preset_mode
+      to: comfort
+  conditions:
+    - condition: state
+      entity_id: climate.suelo_radiante_calor
+      attribute: preset_mode
+      state: comfort
+  actions:
+    - action: input_number.set_value
+      target: { entity_id: input_number.aerotermia_temperatura_confort }
+      data: { value: "{{ state_attr('climate.suelo_radiante_calor', 'temperature') }}" }
