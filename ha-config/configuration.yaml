@@ -1,20 +1,12 @@
 # =====================================================================
-#  OJO: los dos generic_thermostat de abajo NO viven ya en este fichero.
+#  OJO: los dos generic_thermostat de abajo NO viven en este fichero.
 #  En la instalacion real son *helpers de UI* (config entries
-#  01KXAJ6GXFXPA3M906940M5H62 y 01KXAJ8CQQTF42H568DV4M7B4N) y su
-#  configuracion habia divergido de lo que aqui se documentaba. Estado
-#  real comprobado el 2026-09-12:
+#  01KXAJ6GXFXPA3M906940M5H62 y 01KXAJ8CQQTF42H568DV4M7B4N). Lo de abajo
+#  copia su configuracion real, comprobada el 2026-10-17.
 #
-#    | ajuste              | este fichero        | instalacion real |
-#    |---------------------|---------------------|------------------|
-#    | presets             | + home, sleep       | away/comfort/eco |
-#    | tolerancias         | 0,3                 | 0,5              |
-#    | min_cycle_duration  | 10 min              | 10 min  <- repuesto |
-#    | precision           | 0,5                 | no existe        |
-#
-#  El min_cycle_duration faltaba en la instalacion y se repuso por la UI
-#  (Ayudantes > el termostato > Opciones > "Tiempo minimo de
-#  funcionamiento" = 0:10:00) en los dos termostatos.
+#  La temperatura de cada preset se cambia desde la tarjeta (ajustando con
+#  el preset marcado, v1.6.0+) o en Ayudantes > el termostato > Opciones;
+#  no hace falta reiniciar. Los presets home y sleep ya no existen.
 # =====================================================================
 
 # =====================================================================
@@ -34,19 +26,15 @@ climate:
     heater: switch.socket_garaje_aerotermia_bomba
     target_sensor: sensor.temperatura_termostato
     ac_mode: false            # calienta: bomba ON cuando T < objetivo
-    min_temp: 12
-    max_temp: 26
-    target_temp: 21
-    cold_tolerance: 0.3
-    hot_tolerance: 0.3
+    min_temp: 15
+    max_temp: 28
+    cold_tolerance: 0.5
+    hot_tolerance: 0.5
     min_cycle_duration:
       minutes: 10             # protege la bomba de ciclos cortos
-    precision: 0.5
-    away_temp: 16             # Fuera
-    comfort_temp: 21.5        # Confort
-    eco_temp: 19.5            # Eco
-    home_temp: 20             # En Casa
-    sleep_temp: 17            # Dormir
+    away_temp: 15             # Fuera
+    comfort_temp: 22          # Confort
+    eco_temp: 20              # Eco (noche, modos automaticos)
 
   # ─────────── FRIO (verano) ───────────
   - platform: generic_thermostat
@@ -57,17 +45,13 @@ climate:
     ac_mode: true             # enfria: bomba ON cuando T > objetivo
     min_temp: 20
     max_temp: 30
-    target_temp: 25
-    cold_tolerance: 0.3
-    hot_tolerance: 0.3
+    cold_tolerance: 0.5
+    hot_tolerance: 0.5
     min_cycle_duration:
       minutes: 10
-    precision: 0.5
     away_temp: 28             # Fuera
-    comfort_temp: 22          # Confort
+    comfort_temp: 23          # Confort
     eco_temp: 25              # Eco
-    home_temp: 22             # En Casa
-    sleep_temp: 24            # Dormir
 
 input_select:
   aerotermia_modo:

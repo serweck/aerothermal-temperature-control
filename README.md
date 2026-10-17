@@ -5,10 +5,25 @@ Tarjeta Lovelace personalizada para Home Assistant que controla una instalación
 
 - Termostato del **suelo radiante** (enciende/apaga la bomba de impulsión vía relé) con presets.
 - Bloque del **motor LG** (objetivo de agua + temperatura de impulsión / inercia).
-- **Modo único compartido** (off / frío / calor) que sincroniza el termostato y el motor.
+- **Modo único compartido** (off / frío / calor / auto) que sincroniza el termostato y el motor.
+- **Modos automáticos en calor**: eco de noche y confort a tiempo para la hora que elijas,
+  con candado para bloquearlos.
 
-La inteligencia (conmutación calor/frío, presets, seguridad) vive en el **servidor** (HA),
-no en la tarjeta, así funciona aunque no haya ninguna pestaña abierta.
+La inteligencia (conmutación calor/frío, presets, modos automáticos, seguridad) vive en el
+**servidor** (HA), no en la tarjeta, así funciona aunque no haya ninguna pestaña abierta.
+
+## Qué muestra la tarjeta
+
+- **Apagada:** una sola fila con el nombre, «Apagado» y la temperatura de la casa, y la barra
+  de modos para encenderla.
+- **Encendida:** el dial del termostato activo, el **candado** de los modos automáticos arriba
+  a la derecha y, debajo, una **línea plegable** con el objetivo de agua y la impulsión, más los
+  iconos del motor, la bomba, los modos automáticos y el preset puesto. Al tocarla se despliega:
+  objetivo de agua (+/−), impulsión, bomba, **presets** y, en calor, el interruptor de **modos
+  automáticos**. Abajo, la barra de modos (off / frío / calor / auto).
+- **Ajustar la temperatura con un preset marcado** la guarda como temperatura de ese preset y
+  el preset sigue marcado (necesita usuario administrador; si no, es un cambio normal y el preset
+  pasa a `none`).
 
 ![Referencia visual](componente-actual.png)
 
@@ -21,7 +36,7 @@ no en la tarjeta, así funciona aunque no haya ninguna pestaña abierta.
                  │  Tarjeta Lovelace (esta)   │  solo UI: lee estados / llama servicios
                  └─────────────┬─────────────┘
                                │
-   input_select.aerotermia_modo (off / calor / frio)   <- modo maestro
+   input_select.aerotermia_modo (off / calor / frio / auto)   <- modo maestro
                                │
         ┌──────────────────────┴───────────────────────┐
         │ Automatización A: conmuta modo + sincroniza   │
@@ -39,7 +54,24 @@ no en la tarjeta, así funciona aunque no haya ninguna pestaña abierta.
 ```
 
 Los dos `generic_thermostat` comparten relé y sensor; solo uno está activo a la vez
-(el otro queda en `off`). El modo `auto` existe solo a nivel del motor LG, no en el suelo.
+(el otro queda en `off`). En `auto` decide el motor LG: los dos termostatos quedan en `off` y
+el suelo circula de forma continua con cortes de seguridad (automatización D).
+
+### Modos automáticos (calor)
+
+Solo cambian el **preset** del termostato de calor, y nunca con el candado puesto
+(`input_boolean.bloquear_termostato`). En frío, auto y off no hacen nada.
+
+- **E · Modos automáticos (calor):** eco desde `input_datetime.aerotermia_hora_eco` (23:00) y
+  comfort desde el arranque que calcula `binary_sensor.aerotermia_arranque_confort`, para tener
+  la casa a la temperatura de confort a `input_datetime.aerotermia_hora_confort` (08:30).
+- **F · Aprender ritmo de calentamiento:** mide cada subida de eco a comfort y ajusta
+  `input_number.aerotermia_ritmo_calentamiento` (°C/h), que usa el cálculo del arranque.
+- **G · Recordar temperatura de confort:** copia la temperatura del preset comfort a un
+  `input_number`, porque una plantilla no puede leer la de un preset.
+
+E y F se encienden y apagan juntas desde el interruptor de la tarjeta. Los helpers son de la
+interfaz de HA; están documentados en [`ha-config/configuration.yaml`](ha-config/configuration.yaml).
 
 ---
 
@@ -53,6 +85,10 @@ automatizaciones. Reinicia Home Assistant.
 
 Verifica que existan: `climate.suelo_radiante_calor`, `climate.suelo_radiante_frio` e
 `input_select.aerotermia_modo`.
+
+En la instalación real los dos termostatos, los helpers de los modos automáticos y el sensor
+del arranque se crearon desde la interfaz (Ajustes → Ayudantes); el YAML de `ha-config/` los
+documenta. Si los creas desde YAML, no los crees también desde la interfaz.
 
 ### 2. La tarjeta
 
@@ -92,12 +128,10 @@ auto_mode_automations:    # interruptor en el desplegable del motor (solo en cal
   - automation.aerotermia_modos_automaticos_calor
   - automation.aerotermia_aprender_ritmo_de_calentamiento
 presets:
-  - { label: Fuera,   preset: away }
-  - { label: Confort, preset: comfort }
-  - { label: Eco,     preset: eco }
-  - { label: En Casa, preset: home }
-  - { label: Dormir,  preset: sleep }
-show_modes: [off, cool, heat]
+  - { label: Fuera,   preset: away,    icon: "mdi:home-export-outline" }
+  - { label: Confort, preset: comfort, icon: "mdi:sofa" }
+  - { label: Eco,     preset: eco,     icon: "mdi:leaf" }
+show_modes: [off, cool, heat, auto]
 ```
 
 También hay **editor visual** para los entity_id principales (presets y `show_modes` se editan en YAML).
@@ -118,8 +152,8 @@ También hay **editor visual** para los entity_id principales (presets y `show_m
 | `lock_entity` | — | `input_boolean` que bloquea los modos automáticos; se muestra como candado arriba a la derecha. |
 | `auto_mode_automations` | — | Automatizaciones de los modos automáticos. En calor, el desplegable del motor muestra un interruptor que las enciende o apaga todas a la vez. |
 | `name` | — | Título de la tarjeta. |
-| `presets` | — | Lista `{label, preset[, icon]}`. Por defecto Fuera/Confort/Eco/En Casa/Dormir. |
-| `show_modes` | — | Subconjunto de `off`, `cool`, `heat`. |
+| `presets` | — | Lista `{label, preset[, icon]}`, en el desplegable del motor. Por defecto Fuera/Confort/Eco/En Casa/Dormir; solo se muestran los que el termostato activo tiene en `preset_modes`. El icono también marca el preset puesto en la línea plegada. |
+| `show_modes` | — | Subconjunto de `off`, `cool`, `heat`, `auto`. |
 
 ---
 
@@ -138,8 +172,9 @@ Código en `src/` (LitElement + TypeScript). El editor visual está en `src/edit
 
 ## Notas
 
-- Los valores de los presets se configuran en el YAML de los `generic_thermostat` (sección
-  `*_temp`) y cambiarlos requiere reiniciar HA. La tarjeta solo los **selecciona**.
+- La temperatura de cada preset vive en las opciones del `generic_thermostat`. Se cambia desde
+  la tarjeta (ajustando con el preset marcado) o en Ajustes → Ayudantes → el termostato →
+  Opciones. No hace falta reiniciar: el termostato se recarga y conserva su preset.
 - Suelo radiante en frío: vigila la **condensación** (la temperatura de impulsión del agua,
   que fija el LG, no debe bajar del punto de rocío).
 - `min_cycle_duration: 10 min` protege la bomba de ciclos cortos.
