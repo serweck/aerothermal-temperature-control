@@ -72,6 +72,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   @state() private config!: AerothermalCardConfig;
   @state() private _dragging = false;
   @state() private _dragTemp: number | null = null;
+  @state() private _lgOpen = false;
 
   // angulo (0-360) de la bolita en el ultimo render, para el hit-test del arrastre
   private _valueAngle = 0;
@@ -120,7 +121,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
 
   public getCardSize(): number {
-    return 5;
+    return this.hass && this.config && this.isOff ? 2 : 5;
   }
 
   protected shouldUpdate(changed: PropertyValues): boolean {
@@ -128,7 +129,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       changed.has("config") ||
       changed.has("hass") ||
       changed.has("_dragging") ||
-      changed.has("_dragTemp")
+      changed.has("_dragTemp") ||
+      changed.has("_lgOpen")
     );
   }
 
@@ -189,6 +191,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       sensorState != null && sensorState !== "unknown" && sensorState !== "unavailable"
         ? sensorState
         : t.attributes.current_temperature;
+    // Apagada no hay nada que ajustar ni que vigilar del motor: vista minima.
+    if (this.isOff) return this._renderOff(current);
+
     const action = (t.attributes.hvac_action as string) ?? "idle";
     const presetMode = t.attributes.preset_mode as string | undefined;
 
@@ -219,9 +224,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const intPart = Math.trunc(liveTarget);
     const decPart = Math.abs(Math.round((liveTarget - intPart) * 10));
 
-    const actionLabel = this.isOff
-      ? "Apagado"
-      : this.isAuto
+    const actionLabel = this.isAuto
       ? "Auto"
       : action === "heating"
       ? "Calentando"
@@ -339,6 +342,32 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     `;
   }
 
+  private _renderOff(current: unknown): TemplateResult {
+    return html`
+      <ha-card class="compact" style="--accent:${this.accentColor}">
+        <div class="off-row">
+          <ha-icon class="off-icon" icon="mdi:power"></ha-icon>
+          <div class="off-text">
+            <span class="title">${this.config.name ?? "Aerotermia"}</span>
+            <span class="off-state">Apagado</span>
+          </div>
+          ${current != null
+            ? html`<span
+                class="off-current clickable"
+                title="Ver histórico"
+                @click=${() =>
+                  this._openMoreInfo(this.config.current_sensor || this.activeThermostatId)}
+              >
+                <ha-icon icon="mdi:thermometer"></ha-icon>
+                ${String(current).replace(".", ",")} °C
+              </span>`
+            : nothing}
+        </div>
+        ${this._renderModes()}
+      </ha-card>
+    `;
+  }
+
   private _renderWaterBlock(): TemplateResult {
     const lg = this.hass.states[this.config.water_climate];
     if (!lg) {
@@ -358,11 +387,50 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       : undefined;
     const pumpOn = pump?.state === "on";
 
+    // Plegado: una sola linea con lo esencial (como los ajustes del jacuzzi).
+    const fmt = (v: unknown) => (v != null ? String(v).replace(".", ",") : "--");
+    const summary = `Agua ${fmt(wTarget)}° · Impulsión ${fmt(inertia)}°`;
+
     return html`
-      <div class="section">
-        <div class="section-title">
-          <ha-icon icon="mdi:heat-pump"></ha-icon> Motor / Impulsion (LG)
-        </div>
+      <div class="section ${this._lgOpen ? "open" : ""}">
+        <button
+          class="section-toggle"
+          aria-expanded=${this._lgOpen ? "true" : "false"}
+          @click=${this._toggleLg}
+        >
+          <ha-icon icon="mdi:heat-pump"></ha-icon>
+          <span class="section-label"
+            >${this._lgOpen ? "Motor / Impulsión (LG)" : summary}</span
+          >
+          ${this._lgOpen
+            ? nothing
+            : html`<ha-icon
+                  class="status ${lgActive ? "on" : ""}"
+                  title=${lgActive ? "Motor activo" : "Motor en reposo"}
+                  icon="mdi:heat-pump-outline"
+                ></ha-icon>
+                ${pump
+                  ? html`<ha-icon
+                      class="status ${pumpOn ? "on" : ""}"
+                      title=${pumpOn ? "Bomba en marcha" : "Bomba parada"}
+                      icon="mdi:pump"
+                    ></ha-icon>`
+                  : nothing}`}
+          <ha-icon class="chevron" icon="mdi:chevron-down"></ha-icon>
+        </button>
+        ${this._lgOpen ? this._renderWaterRows(wTarget, inertia, lgActive, pump, pumpOn) : nothing}
+      </div>
+    `;
+  }
+
+  private _renderWaterRows(
+    wTarget: unknown,
+    inertia: unknown,
+    lgActive: boolean,
+    pump: HaEntity | undefined,
+    pumpOn: boolean
+  ): TemplateResult {
+    return html`
         <div class="row">
           <span class="label">Objetivo agua</span>
           <div class="row-right">
@@ -400,7 +468,6 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
               </span>
             </div>`
           : nothing}
-      </div>
     `;
   }
 
@@ -459,6 +526,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
 
   // --- acciones ---
+  private _toggleLg = (): void => {
+    this._lgOpen = !this._lgOpen;
+  };
   private _step(entityId: string, dir: number): void {
     const e = this.hass.states[entityId];
     if (!e) return;
@@ -769,13 +839,88 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       border-top: 1px solid var(--divider-color, #3a3a3a);
       padding-top: 10px;
     }
-    .section-title {
-      font-size: 0.8rem;
-      color: var(--secondary-text-color);
+    .section-toggle {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
+      gap: 8px;
+      width: 100%;
+      min-height: 32px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 0.85rem;
+      color: var(--secondary-text-color);
+      cursor: pointer;
+      text-align: left;
+    }
+    .section-toggle > ha-icon {
+      --mdc-icon-size: 18px;
+    }
+    .section-label {
+      flex: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .section-toggle .status {
+      opacity: 0.45;
+    }
+    .section-toggle .status.on {
+      color: var(--accent);
+      opacity: 1;
+    }
+    .section-toggle .chevron {
+      transition: transform 0.2s ease;
+    }
+    .section.open .section-toggle .chevron {
+      transform: rotate(180deg);
+    }
+    .section.open .section-toggle {
+      margin-bottom: 4px;
+    }
+
+    /* VISTA APAGADA */
+    ha-card.compact {
+      padding: 12px;
+    }
+    .off-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 4px;
+    }
+    .off-icon {
+      --mdc-icon-size: 22px;
+      color: var(--secondary-text-color);
+      background: var(--secondary-background-color, #2a2a2a);
+      border-radius: 50%;
+      padding: 9px;
+    }
+    .off-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.25;
+    }
+    .off-text .title {
+      color: var(--primary-text-color);
+    }
+    .off-state {
+      font-size: 0.85rem;
+      color: var(--secondary-text-color);
+    }
+    .off-current {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 1.05rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .off-current ha-icon {
+      --mdc-icon-size: 18px;
+      color: var(--secondary-text-color);
+    }
+    .off-current:hover {
+      opacity: 0.7;
     }
     .row {
       display: flex;

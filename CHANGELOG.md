@@ -4,6 +4,17 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-10-17
+
+### Cambiado
+- **Vista reducida cuando esta apagada.** Con el modo en `off` la tarjeta ya no pinta el dial, el
+  bloque del motor ni los presets: queda una sola fila (icono, nombre, «Apagado» y temperatura
+  actual, que sigue abriendo el historico) y la barra de modos para volver a encenderla.
+- **Bloque «Motor / Impulsion (LG)» plegable.** Encendida, el bloque se resume en una linea
+  —`Agua 35° · Impulsion 33,5°` con los iconos del motor y de la bomba en color cuando estan en
+  marcha— y al tocarla se despliega con el objetivo de agua (+/-), la impulsion y la bomba, como
+  los ajustes de la tarjeta del jacuzzi. Arranca plegado.
+
 ## [1.4.6] - 2026-09-11
 
 ### Anadido

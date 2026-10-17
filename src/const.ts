@@ -1,3 +1,3 @@
-export const CARD_VERSION = "1.4.6";
+export const CARD_VERSION = "1.5.0";
 export const CARD_TAG = "aerothermal-temperature-control";
 export const EDITOR_TAG = "aerothermal-temperature-control-editor";
