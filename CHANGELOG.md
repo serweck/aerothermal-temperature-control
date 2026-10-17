@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.9.0] - 2026-10-17
+
+### Cambiado
+- **El interruptor de los modos automaticos sale tambien en frio.** Ahora incluye la automatizacion
+  de vacaciones, que actua en calor y en frio. En off y auto sigue sin salir.
+
 ## [1.8.0] - 2026-10-17
 
 ### Cambiado

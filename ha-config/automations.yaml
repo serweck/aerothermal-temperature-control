@@ -251,7 +251,8 @@
 #    comfort desde el arranque calculado para tener la casa lista a la
 #    hora de confort, eco desde la hora de eco. En frio, auto y off no
 #    hace nada, y tampoco con el candado (input_boolean.bloquear_termostato).
-#    La alarma ya no influye: las vacaciones iran aparte.
+#    La alarma no influye. Con el modo vacaciones tampoco actua (lo lleva H);
+#    al terminar, aplica el preset que toque por horario.
 # ---------------------------------------------------------------------
 - id: aerotermia_modos_automaticos_calor
   alias: "Aerotermia - Modos automáticos (calor)"
@@ -268,6 +269,12 @@
       entity_id: input_select.aerotermia_modo
       to: calor
       id: modo
+    # fin de las vacaciones: como un cambio de modo, aplica el horario
+    - trigger: state
+      entity_id: input_boolean.modo_vacaciones
+      from: "on"
+      to: "off"
+      id: modo
   conditions:
     - condition: state
       entity_id: input_boolean.bloquear_termostato
@@ -275,6 +282,9 @@
     - condition: state
       entity_id: input_select.aerotermia_modo
       state: calor
+    - condition: state
+      entity_id: input_boolean.modo_vacaciones
+      state: "off"
   actions:
     - choose:
         - alias: Toca confort
@@ -417,3 +427,86 @@
     - action: input_number.set_value
       target: { entity_id: input_number.aerotermia_temperatura_confort }
       data: { value: "{{ state_attr('climate.suelo_radiante_calor', 'temperature') }}" }
+
+# ---------------------------------------------------------------------
+# H) Vacaciones (creada el 2026-10-17, DESACTIVADA; va con E y F en el
+#    interruptor de la tarjeta). Usa el modo vacaciones del proyecto
+#    «Modo vacaciones» (input_boolean.modo_vacaciones y su vuelta
+#    programada opcional).
+#
+#    Con el modo, el termostato del modo activo pasa a away (calor 15 °C,
+#    frio 28 °C). Con vuelta programada vuelve a comfort con antelacion:
+#    binary_sensor.aerotermia_vuelta_vacaciones. Al terminar, en frio vuelve
+#    a comfort; en calor lo retoma E. Auto y off no se tocan, ni nada con
+#    el candado puesto. Solo cambia presets.
+# ---------------------------------------------------------------------
+- id: aerotermia_vacaciones
+  alias: "Aerotermia - Vacaciones"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id: input_boolean.modo_vacaciones
+      to: "on"
+      id: inicio
+    - trigger: state
+      entity_id: binary_sensor.aerotermia_vuelta_vacaciones
+      to: "on"
+      id: vuelta
+    - trigger: state
+      entity_id: input_select.aerotermia_modo
+      to: [calor, frio]
+      id: modo
+    - trigger: state
+      entity_id: input_boolean.modo_vacaciones
+      from: "on"
+      to: "off"
+      id: fin
+  conditions:
+    - condition: state
+      entity_id: input_boolean.bloquear_termostato
+      state: "off"
+    - condition: state
+      entity_id: input_select.aerotermia_modo
+      state: [calor, frio]
+  actions:
+    - variables:
+        termostato: >-
+          {{ 'climate.suelo_radiante_frio' if is_state('input_select.aerotermia_modo', 'frio')
+             else 'climate.suelo_radiante_calor' }}
+    - choose:
+        - alias: "Fin de las vacaciones en frío: comfort"
+          conditions:
+            - condition: trigger
+              id: fin
+            - condition: state
+              entity_id: input_select.aerotermia_modo
+              state: frio
+          sequence:
+            - action: climate.set_preset_mode
+              target: { entity_id: "{{ termostato }}" }
+              data: { preset_mode: comfort }
+        - alias: "Toca preparar la vuelta: comfort"
+          conditions:
+            - condition: trigger
+              id: [inicio, vuelta, modo]
+            - condition: state
+              entity_id: input_boolean.modo_vacaciones
+              state: "on"
+            - condition: state
+              entity_id: binary_sensor.aerotermia_vuelta_vacaciones
+              state: "on"
+          sequence:
+            - action: climate.set_preset_mode
+              target: { entity_id: "{{ termostato }}" }
+              data: { preset_mode: comfort }
+        - alias: "De vacaciones: away"
+          conditions:
+            - condition: trigger
+              id: [inicio, modo]
+            - condition: state
+              entity_id: input_boolean.modo_vacaciones
+              state: "on"
+          sequence:
+            - action: climate.set_preset_mode
+              target: { entity_id: "{{ termostato }}" }
+              data: { preset_mode: away }

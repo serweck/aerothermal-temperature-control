@@ -116,6 +116,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       auto_mode_automations: [
         "automation.aerotermia_modos_automaticos_calor",
         "automation.aerotermia_aprender_ritmo_de_calentamiento",
+        "automation.aerotermia_vacaciones",
       ],
       show_modes: ["off", "cool", "heat", "auto"],
     };
@@ -173,10 +174,11 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   private get isHeat(): boolean {
     return this.modeState === MODE_OPTION.heat;
   }
-  /** Automatizaciones de modos automaticos que existen en HA. Solo actuan en
-   *  calor, asi que solo se ofrecen en calor. */
+  /** Automatizaciones de modos automaticos que existen en HA. Actuan en calor
+   *  (horario) y en calor o frio (vacaciones), asi que se ofrecen en los dos;
+   *  en off y auto no hacen nada. */
   private get autoModes(): HaEntity[] {
-    if (!this.isHeat) return [];
+    if (!this.isHeat && this.modeState !== MODE_OPTION.cool) return [];
     return (this.config.auto_mode_automations ?? [])
       .map((id) => this.hass.states[id] as HaEntity | undefined)
       .filter((e): e is HaEntity => !!e);

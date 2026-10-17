@@ -112,9 +112,9 @@
         <ol class="checks">
           <li><b>Apagada:</b> pulsa el botón de apagado, el primero de la barra de modos. Queda una sola fila con la temperatura y los modos.</li>
           <li><b>Calor:</b> candado arriba a la derecha y la línea «Agua · Impulsión» con los iconos de motor, bomba, modos automáticos y el preset puesto (el sofá es Confort).</li>
-          <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco) y, en calor, «Modos automáticos» con su interruptor, que enciende y apaga las dos automatizaciones.</li>
+          <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco) y, en calor y en frío, «Modos automáticos» con su interruptor, que enciende y apaga juntas las automatizaciones del horario y de vacaciones.</li>
           <li><b>Temperatura en el preset:</b> con Confort marcado, pulsa + o − en el dial. A los 1,2 s se guarda en el preset y Confort sigue marcado.</li>
-          <li><b>Frío y auto:</b> los presets siguen en el desplegable, pero el interruptor y el icono de calendario no salen.</li>
+          <li><b>Frío y auto:</b> en frío también salen el interruptor y el icono de calendario; en auto, solo los presets.</li>
         </ol>
       </section>
 
@@ -206,7 +206,7 @@ __CARD_JS__
 
 <script type="module">
 /* --- Casa simulada: el estado que veria la tarjeta y lo que haria HA con cada orden --- */
-const AUTOS = ["automation.aerotermia_modos_automaticos_calor", "automation.aerotermia_aprender_ritmo_de_calentamiento"];
+const AUTOS = ["automation.aerotermia_modos_automaticos_calor", "automation.aerotermia_aprender_ritmo_de_calentamiento", "automation.aerotermia_vacaciones"];
 const CONFIG = {
   type: "custom:aerothermal-temperature-control",
   name: "Aerotermia",
@@ -230,7 +230,7 @@ const CONFIG = {
 const initial = () => ({
   mode: "calor",
   lock: false,
-  autos: { [AUTOS[0]]: false, [AUTOS[1]]: false },
+  autos: Object.fromEntries(AUTOS.map((a) => [a, false])),
   house: 21.4,
   lgActive: true,
   pumpOn: true,

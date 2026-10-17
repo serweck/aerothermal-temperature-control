@@ -46,7 +46,7 @@ const LABELS: Record<string, string> = {
   pump_switch: "Rele de la bomba (opcional)",
   inertia_sensor: "Sensor de inercia (opcional)",
   lock_entity: "Bloqueo de los modos automaticos (input_boolean, opcional)",
-  auto_mode_automations: "Automatizaciones de los modos automaticos (calor, opcional)",
+  auto_mode_automations: "Automatizaciones de los modos automaticos (calor y frio, opcional)",
 };
 
 @customElement(EDITOR_TAG)

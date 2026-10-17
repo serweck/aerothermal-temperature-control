@@ -120,6 +120,7 @@ template:
 #  - input_datetime.aerotermia_subida_inicio         (fecha y hora)
 #  - input_number.aerotermia_subida_temperatura_inicio
 #  - input_boolean.bloquear_termostato               candado de la tarjeta
+#  - input_number.aerotermia_antelacion_vuelta_frio  48 h: frio a comfort antes de la vuelta (H)
 #
 #  Ese dia tambien se cambio eco_temp del termostato de calor a 20 °C
 #  (comfort 22, away 15). Los termostatos reales son helpers de UI.
@@ -139,3 +140,26 @@ template:
           {% set horas = 0 if t is none or ritmo <= 0 else [0, [(objetivo - t) / ritmo, 8] | min] | max %}
           {{ today_at(states('input_datetime.aerotermia_hora_confort')) - timedelta(hours=horas)
              <= now() < today_at(states('input_datetime.aerotermia_hora_eco')) }}
+
+      - name: "Aerotermia vuelta vacaciones"
+        # Toca preparar la casa para la vuelta de vacaciones (automatizacion H):
+        # modo vacaciones con vuelta programada y ya dentro de la antelacion.
+        # En frio, antelacion fija; en calor, lo que tarda en subir a la
+        # temperatura de confort con el ritmo aprendido (max. 24 h).
+        state: >
+          {% set vuelta = states('input_datetime.vacaciones_vuelta') | as_datetime %}
+          {% set modo = states('input_select.aerotermia_modo') %}
+          {% set t = states('sensor.temperatura_termostato') | float(none) %}
+          {% set objetivo = states('input_number.aerotermia_temperatura_confort') | float(22) %}
+          {% set ritmo = states('input_number.aerotermia_ritmo_calentamiento') | float(0.5) %}
+          {% if modo == 'frio' %}
+            {% set horas = states('input_number.aerotermia_antelacion_vuelta_frio') | float(48) %}
+          {% elif modo == 'calor' and t is not none and ritmo > 0 %}
+            {% set horas = [0, [(objetivo - t) / ritmo, 24] | min] | max %}
+          {% else %}
+            {% set horas = 0 %}
+          {% endif %}
+          {{ is_state('input_boolean.modo_vacaciones', 'on')
+             and is_state('input_boolean.vacaciones_vuelta_programada', 'on')
+             and vuelta is not none
+             and now() >= (vuelta | as_local) - timedelta(hours=horas) }}
