@@ -30,6 +30,10 @@ export interface AerothermalCardConfig extends LovelaceCardConfig {
   /** input_boolean que bloquea los modos automaticos: encendido, las
    *  automatizaciones no tocan los presets. Se muestra como candado. */
   lock_entity?: string;
+  /** automatizaciones de los modos automaticos (solo actuan en calor). En
+   *  calor, el desplegable del motor muestra un interruptor que las enciende
+   *  o apaga todas a la vez. */
+  auto_mode_automations?: string[];
   /** presets visibles. */
   presets?: PresetItem[];
   /** modos visibles: subconjunto de off|cool|heat. */

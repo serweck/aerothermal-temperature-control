@@ -4,6 +4,14 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.7.0] - 2026-10-17
+
+### Anadido
+- **Interruptor de los modos automaticos en el desplegable del motor** (`auto_mode_automations`, una
+  lista de automatizaciones). Solo en calor, que es donde actuan: una fila «Modos automaticos» con un
+  interruptor que las enciende o apaga todas a la vez (la de los presets y la que aprende el ritmo).
+  Con el bloque plegado, un icono de calendario en la linea resumen dice si estan activadas.
+
 ## [1.6.0] - 2026-10-17
 
 ### Anadido

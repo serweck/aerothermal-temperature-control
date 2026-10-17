@@ -88,6 +88,9 @@ current_sensor: sensor.temperatura_termostato   # temp real del dial (recomendad
 pump_switch: switch.socket_garaje_aerotermia_bomba
 inertia_sensor: ""        # vacío -> usa current_temperature del LG
 lock_entity: input_boolean.bloquear_termostato  # candado de los modos automáticos
+auto_mode_automations:    # interruptor en el desplegable del motor (solo en calor)
+  - automation.aerotermia_modos_automaticos_calor
+  - automation.aerotermia_aprender_ritmo_de_calentamiento
 presets:
   - { label: Fuera,   preset: away }
   - { label: Confort, preset: comfort }
@@ -113,6 +116,7 @@ También hay **editor visual** para los entity_id principales (presets y `show_m
 | `pump_switch` | — | Relé de la bomba (indicador). |
 | `inertia_sensor` | — | Sensor de inercia; vacío usa `current_temperature` del LG. |
 | `lock_entity` | — | `input_boolean` que bloquea los modos automáticos; se muestra como candado arriba a la derecha. |
+| `auto_mode_automations` | — | Automatizaciones de los modos automáticos. En calor, el desplegable del motor muestra un interruptor que las enciende o apaga todas a la vez. |
 | `name` | — | Título de la tarjeta. |
 | `presets` | — | Lista `{label, preset[, icon]}`. Por defecto Fuera/Confort/Eco/En Casa/Dormir. |
 | `show_modes` | — | Subconjunto de `off`, `cool`, `heat`. |

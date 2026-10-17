@@ -113,6 +113,10 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       pump_switch: "switch.socket_garaje_aerotermia_bomba",
       inertia_sensor: "",
       lock_entity: "input_boolean.bloquear_termostato",
+      auto_mode_automations: [
+        "automation.aerotermia_modos_automaticos_calor",
+        "automation.aerotermia_aprender_ritmo_de_calentamiento",
+      ],
       show_modes: ["off", "cool", "heat", "auto"],
     };
   }
@@ -165,6 +169,17 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
    *  al mando: el dial no representa nada y se deshabilita. */
   private get isAuto(): boolean {
     return this.modeState === MODE_OPTION.auto;
+  }
+  private get isHeat(): boolean {
+    return this.modeState === MODE_OPTION.heat;
+  }
+  /** Automatizaciones de modos automaticos que existen en HA. Solo actuan en
+   *  calor, asi que solo se ofrecen en calor. */
+  private get autoModes(): HaEntity[] {
+    if (!this.isHeat) return [];
+    return (this.config.auto_mode_automations ?? [])
+      .map((id) => this.hass.states[id] as HaEntity | undefined)
+      .filter((e): e is HaEntity => !!e);
   }
   /** El dial solo tiene sentido cuando manda un termostato de suelo. */
   private get dialDisabled(): boolean {
@@ -454,7 +469,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                       title=${pumpOn ? "Bomba en marcha" : "Bomba parada"}
                       icon="mdi:pump"
                     ></ha-icon>`
-                  : nothing}`}
+                  : nothing}
+                ${this._renderAutoStatus()}`}
           <ha-icon class="chevron" icon="mdi:chevron-down"></ha-icon>
         </button>
         ${this._lgOpen ? this._renderWaterRows(wTarget, inertia, lgActive, pump, pumpOn) : nothing}
@@ -507,7 +523,42 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
               </span>
             </div>`
           : nothing}
+        ${this._renderAutoRow()}
     `;
+  }
+
+  private _autoModesOn(autos: HaEntity[]): boolean {
+    return autos.length > 0 && autos.every((a) => a.state === "on");
+  }
+
+  private _renderAutoStatus(): TemplateResult | typeof nothing {
+    const autos = this.autoModes;
+    if (!autos.length) return nothing;
+    const on = this._autoModesOn(autos);
+    return html`<ha-icon
+      class="status ${on ? "on" : ""}"
+      title=${on ? "Modos automáticos activados" : "Modos automáticos desactivados"}
+      icon="mdi:calendar-clock"
+    ></ha-icon>`;
+  }
+
+  private _renderAutoRow(): TemplateResult | typeof nothing {
+    const autos = this.autoModes;
+    if (!autos.length) return nothing;
+    const on = this._autoModesOn(autos);
+    return html`<div class="row">
+      <span class="label">Modos automáticos</span>
+      <ha-switch .checked=${on} @change=${(e: Event) => this._setAutoModes(autos, e)}></ha-switch>
+    </div>`;
+  }
+
+  /** Enciende o apaga juntas todas las automatizaciones de modos automaticos
+   *  (la de los presets y la que aprende el ritmo). */
+  private _setAutoModes(autos: HaEntity[], e: Event): void {
+    const on = (e.target as HTMLInputElement).checked;
+    this.hass.callService("automation", on ? "turn_on" : "turn_off", {
+      entity_id: autos.map((a) => a.entity_id),
+    });
   }
 
   private _renderPresets(active?: string): TemplateResult | typeof nothing {

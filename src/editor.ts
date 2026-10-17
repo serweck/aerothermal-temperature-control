@@ -30,6 +30,10 @@ const SCHEMA = [
   { name: "pump_switch", selector: { entity: { domain: "switch" } } },
   { name: "inertia_sensor", selector: { entity: { domain: "sensor" } } },
   { name: "lock_entity", selector: { entity: { domain: "input_boolean" } } },
+  {
+    name: "auto_mode_automations",
+    selector: { entity: { domain: "automation", multiple: true } },
+  },
 ];
 
 const LABELS: Record<string, string> = {
@@ -42,6 +46,7 @@ const LABELS: Record<string, string> = {
   pump_switch: "Rele de la bomba (opcional)",
   inertia_sensor: "Sensor de inercia (opcional)",
   lock_entity: "Bloqueo de los modos automaticos (input_boolean, opcional)",
+  auto_mode_automations: "Automatizaciones de los modos automaticos (calor, opcional)",
 };
 
 @customElement(EDITOR_TAG)
