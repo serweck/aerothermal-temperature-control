@@ -4,6 +4,15 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.8.0] - 2026-10-17
+
+### Cambiado
+- **Los presets pasan al desplegable del motor**, en calor, frio y auto. Normalmente los cambian las
+  automatizaciones, asi que no hace falta tenerlos siempre a la vista. Dentro van encima del
+  interruptor de los modos automaticos.
+- **Plegado, el icono del preset puesto** (el del YAML de `presets`) aparece en la linea resumen,
+  junto a los del motor, la bomba y los modos automaticos.
+
 ## [1.7.0] - 2026-10-17
 
 ### Anadido

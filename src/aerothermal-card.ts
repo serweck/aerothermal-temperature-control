@@ -372,7 +372,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
           </div>
         </div>
 
-        ${this._renderWaterBlock()} ${this._renderPresets(presetMode)}
+        ${this._renderWaterBlock(presetMode)}
         ${this._renderModes()}
       </ha-card>
     `;
@@ -422,7 +422,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  private _renderWaterBlock(): TemplateResult {
+  private _renderWaterBlock(presetMode?: string): TemplateResult {
     const lg = this.hass.states[this.config.water_climate];
     if (!lg) {
       return html`<div class="warn small">
@@ -470,10 +470,13 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
                       icon="mdi:pump"
                     ></ha-icon>`
                   : nothing}
-                ${this._renderAutoStatus()}`}
+                ${this._renderAutoStatus()} ${this._renderPresetStatus(presetMode)}`}
           <ha-icon class="chevron" icon="mdi:chevron-down"></ha-icon>
         </button>
-        ${this._lgOpen ? this._renderWaterRows(wTarget, inertia, lgActive, pump, pumpOn) : nothing}
+        ${this._lgOpen
+          ? html`${this._renderWaterRows(wTarget, inertia, lgActive, pump, pumpOn)}
+            ${this._renderPresets(presetMode)} ${this._renderAutoRow()}`
+          : nothing}
       </div>
     `;
   }
@@ -523,7 +526,6 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
               </span>
             </div>`
           : nothing}
-        ${this._renderAutoRow()}
     `;
   }
 
@@ -540,6 +542,14 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       title=${on ? "Modos automáticos activados" : "Modos automáticos desactivados"}
       icon="mdi:calendar-clock"
     ></ha-icon>`;
+  }
+
+  /** Los presets viven en el desplegable (normalmente los cambian las
+   *  automatizaciones): plegado, su icono dice cual esta puesto. */
+  private _renderPresetStatus(active?: string): TemplateResult | typeof nothing {
+    const p = (this.config.presets ?? DEFAULT_PRESETS).find((x) => x.preset === active);
+    if (!p?.icon) return nothing;
+    return html`<ha-icon class="status on" title=${`Preset: ${p.label}`} icon=${p.icon}></ha-icon>`;
   }
 
   private _renderAutoRow(): TemplateResult | typeof nothing {
@@ -1176,7 +1186,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     .presets {
       display: flex;
       gap: 6px;
-      margin-top: 12px;
+      margin: 8px 0 4px;
       flex-wrap: wrap;
     }
     .preset {
