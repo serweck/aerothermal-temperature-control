@@ -27,6 +27,9 @@ export interface AerothermalCardConfig extends LovelaceCardConfig {
   pump_switch?: string;
   /** sensor de inercia; vacio = usa current_temperature del LG. */
   inertia_sensor?: string;
+  /** input_boolean que bloquea los modos automaticos: encendido, las
+   *  automatizaciones no tocan los presets. Se muestra como candado. */
+  lock_entity?: string;
   /** presets visibles. */
   presets?: PresetItem[];
   /** modos visibles: subconjunto de off|cool|heat. */

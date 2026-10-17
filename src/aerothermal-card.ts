@@ -73,6 +73,13 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   @state() private _dragging = false;
   @state() private _dragTemp: number | null = null;
   @state() private _lgOpen = false;
+  /** Objetivo pedido con un preset activo que aun se esta guardando en el
+   *  preset del termostato (se pinta en el dial mientras tanto). */
+  @state() private _pendingTemp: number | null = null;
+
+  private _saveTimer: number | undefined;
+  private _saving = false;
+  private _entryIds: Record<string, string> = {};
 
   // angulo (0-360) de la bolita en el ultimo render, para el hit-test del arrastre
   private _valueAngle = 0;
@@ -86,6 +93,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
     window.removeEventListener("pointercancel", this._boundUp);
+    window.clearTimeout(this._saveTimer);
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -104,6 +112,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       current_sensor: "sensor.temperatura_termostato",
       pump_switch: "switch.socket_garaje_aerotermia_bomba",
       inertia_sensor: "",
+      lock_entity: "input_boolean.bloquear_termostato",
       show_modes: ["off", "cool", "heat", "auto"],
     };
   }
@@ -130,8 +139,18 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       changed.has("hass") ||
       changed.has("_dragging") ||
       changed.has("_dragTemp") ||
-      changed.has("_lgOpen")
+      changed.has("_lgOpen") ||
+      changed.has("_pendingTemp")
     );
+  }
+
+  protected willUpdate(): void {
+    // El guardado termino y el termostato ya refleja el objetivo: soltamos el
+    // valor provisional.
+    if (this._pendingTemp != null && !this._saving && this.hass && this.config) {
+      const t = this.activeThermostat?.attributes.temperature;
+      if (t != null && Number(t) === this._pendingTemp) this._pendingTemp = null;
+    }
   }
 
   // --- estado derivado ---
@@ -180,7 +199,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const min = Number(t.attributes.min_temp ?? 12);
     const max = Number(t.attributes.max_temp ?? 30);
     const target = Number(t.attributes.temperature ?? min);
-    const liveTarget = this._dragTemp != null ? this._dragTemp : target;
+    const liveTarget =
+      this._dragTemp != null ? this._dragTemp : this._pendingTemp ?? target;
     // temperatura real: del sensor de zona si se configura (mas fiable), si no
     // del current_temperature del termostato activo.
     const sensorState =
@@ -238,6 +258,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       <ha-card style="--accent:${this.accentColor}">
         <div class="header">
           <span class="title">${this.config.name ?? "Aerotermia"}</span>
+          ${this._renderLock()}
         </div>
 
         <!-- DIAL -->
@@ -340,6 +361,24 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
         ${this._renderModes()}
       </ha-card>
     `;
+  }
+
+  /** Candado de los modos automaticos: bloqueado, las automatizaciones no
+   *  cambian los presets. */
+  private _renderLock(): TemplateResult | typeof nothing {
+    const id = this.config.lock_entity;
+    const lock = id ? this.hass.states[id] : undefined;
+    if (!lock) return nothing;
+    const locked = lock.state === "on";
+    return html`<button
+      class="lock ${locked ? "on" : ""}"
+      title=${locked
+        ? "Modos automáticos bloqueados: no cambian el preset"
+        : "Modos automáticos permitidos"}
+      @click=${() => this.hass.callService("input_boolean", "toggle", { entity_id: id })}
+    >
+      <ha-icon icon=${locked ? "mdi:lock" : "mdi:lock-open-variant-outline"}></ha-icon>
+    </button>`;
   }
 
   private _renderOff(current: unknown): TemplateResult {
@@ -544,7 +583,108 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
   private _stepThermostat(dir: number): void {
     if (this.dialDisabled) return;
-    this._step(this.activeThermostatId, dir);
+    const e = this.activeThermostat;
+    if (!e) return;
+    const step = Number(e.attributes.target_temp_step ?? 0.5);
+    const cur =
+      this._pendingTemp ?? Number(e.attributes.temperature ?? e.attributes.min_temp ?? 20);
+    const min = Number(e.attributes.min_temp ?? -Infinity);
+    const max = Number(e.attributes.max_temp ?? Infinity);
+    this._setTarget(Number(Math.min(max, Math.max(min, cur + dir * step)).toFixed(1)));
+  }
+
+  /** Con un preset activo, el objetivo nuevo se guarda como temperatura de ese
+   *  preset (opciones del generic_thermostat) y el preset sigue marcado; asi las
+   *  automatizaciones, que solo cambian el preset, respetan lo que se ajusto.
+   *  Sin preset, o si no se puede (usuario sin permisos de administrador), es un
+   *  set_temperature normal, que en HA deja el preset en "none". */
+  private _setTarget(temp: number): void {
+    const entityId = this.activeThermostatId;
+    const preset = this.activeThermostat?.attributes.preset_mode as string | undefined;
+    if (!preset || preset === "none") {
+      this.hass.callService("climate", "set_temperature", {
+        entity_id: entityId,
+        temperature: temp,
+      });
+      return;
+    }
+    // Cada guardado recarga el termostato: esperamos a que se dejen de pulsar
+    // los botones para guardar una sola vez.
+    this._pendingTemp = temp;
+    window.clearTimeout(this._saveTimer);
+    this._saveTimer = window.setTimeout(() => this._flushPresetTemp(entityId, preset), 1200);
+  }
+
+  private async _flushPresetTemp(entityId: string, preset: string): Promise<void> {
+    if (this._saving) return; // al terminar el guardado en curso se reintenta
+    const temp = this._pendingTemp;
+    if (temp == null) return;
+    this._saving = true;
+    try {
+      await this._savePresetTemp(entityId, preset, temp);
+      await this.hass.callService("climate", "set_preset_mode", {
+        entity_id: entityId,
+        preset_mode: preset,
+      });
+    } catch (err) {
+      console.warn("aerothermal: no se pudo guardar la temperatura del preset", err);
+      await this.hass.callService("climate", "set_temperature", {
+        entity_id: entityId,
+        temperature: temp,
+      });
+    } finally {
+      this._saving = false;
+    }
+    // Se pidio otro valor mientras guardabamos.
+    if (this._pendingTemp != null && this._pendingTemp !== temp) {
+      this._flushPresetTemp(entityId, preset);
+    } else {
+      this.requestUpdate();
+    }
+  }
+
+  /** Recorre el options flow del generic_thermostat (paso init y paso presets)
+   *  reenviando los valores actuales y cambiando solo <preset>_temp. */
+  private async _savePresetTemp(entityId: string, preset: string, temp: number): Promise<void> {
+    let entryId = this._entryIds[entityId];
+    if (!entryId) {
+      const reg = await this.hass.callWS<{ config_entry_id: string | null }>({
+        type: "config/entity_registry/get",
+        entity_id: entityId,
+      });
+      if (!reg.config_entry_id) throw new Error(`${entityId} sin config entry`);
+      entryId = this._entryIds[entityId] = reg.config_entry_id;
+    }
+    const current = (schema: any[] = []) => {
+      const data: Record<string, unknown> = {};
+      for (const f of schema) {
+        const v = f.description?.suggested_value;
+        if (v !== undefined) data[f.name] = v;
+      }
+      return data;
+    };
+    const flow = await this.hass.callApi<any>("POST", "config/config_entries/options/flow", {
+      handler: entryId,
+    });
+    const url = `config/config_entries/options/flow/${flow.flow_id}`;
+    try {
+      let step = flow;
+      if (step.step_id === "init") {
+        step = await this.hass.callApi<any>("POST", url, current(step.data_schema));
+      }
+      const key = `${preset}_temp`;
+      if (step.step_id !== "presets" || !step.data_schema?.some((f: any) => f.name === key)) {
+        throw new Error(`options flow sin ${key}`);
+      }
+      const done = await this.hass.callApi<any>("POST", url, {
+        ...current(step.data_schema),
+        [key]: temp,
+      });
+      if (done.type !== "create_entry") throw new Error(`options flow: ${done.type}`);
+    } catch (err) {
+      await this.hass.callApi("DELETE", url).catch(() => undefined);
+      throw err;
+    }
   }
   private _stepWater(dir: number): void {
     this._step(this.config.water_climate, dir);
@@ -626,13 +766,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       }
       this._dragPointerId = null;
     }
-    if (this._dragTemp != null) {
-      this.hass.callService("climate", "set_temperature", {
-        entity_id: this.activeThermostatId,
-        temperature: this._dragTemp,
-      });
-    }
+    const dropped = this._dragTemp;
     this._dragTemp = null;
+    if (dropped != null) this._setTarget(dropped);
   }
   private _updateFromPointer(e: PointerEvent): void {
     const svg = this.renderRoot.querySelector("svg.dial") as SVGElement | null;
@@ -669,8 +805,34 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       color: var(--primary-text-color);
     }
     .header {
+      position: relative;
       text-align: center;
       padding: 4px 0 0;
+      min-height: 28px;
+    }
+    .lock {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--secondary-text-color);
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    .lock ha-icon {
+      --mdc-icon-size: 20px;
+    }
+    .lock.on {
+      color: var(--accent);
+      background: var(--secondary-background-color, #2a2a2a);
+      opacity: 1;
     }
     .title {
       font-size: 1.05rem;

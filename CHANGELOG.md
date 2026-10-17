@@ -4,6 +4,23 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.6.0] - 2026-10-17
+
+### Anadido
+- **Candado de los modos automaticos** (`lock_entity`, un `input_boolean`). Arriba a la derecha de la
+  tarjeta: cerrado, las automatizaciones de modos automaticos no cambian el preset. Sustituye a la
+  baldosa suelta «Bloquear Termostato» de los paneles.
+
+### Cambiado
+- **Ajustar la temperatura con un preset activo la guarda en el preset.** Con `comfort`, `eco` o
+  `away` marcado, los botones `+`/`-` y el arrastre del dial guardan el valor como nueva temperatura
+  de ese preset (opciones del `generic_thermostat`) y el preset sigue marcado. Antes HA dejaba el
+  preset en `none` y la siguiente vez que se aplicaba volvia a su temperatura configurada. Asi las
+  automatizaciones, que solo cambian el preset, respetan lo que se ajusto.
+
+  Cada guardado recarga el termostato, asi que la tarjeta espera 1,2 s sin pulsaciones antes de
+  guardar. Necesita un usuario administrador; si no lo es, hace un `set_temperature` normal.
+
 ## [1.5.0] - 2026-10-17
 
 ### Cambiado
