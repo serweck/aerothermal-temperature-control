@@ -121,6 +121,9 @@ template:
 #  - input_number.aerotermia_subida_temperatura_inicio
 #  - input_boolean.bloquear_termostato               candado de la tarjeta
 #  - input_number.aerotermia_antelacion_vuelta_frio  48 h: frio a comfort antes de la vuelta (H)
+#  - input_number.aerotermia_objetivo_agua_calor     objetivo del agua del LG en calor (I)
+#  - input_number.aerotermia_objetivo_agua_frio      objetivo del agua del LG en frio (I)
+#    (los dos de 10 a 65 °C en pasos de 1; creados el 2026-10-25)
 #
 #  Ese dia tambien se cambio eco_temp del termostato de calor a 20 °C
 #  (comfort 22, away 15). Los termostatos reales son helpers de UI.

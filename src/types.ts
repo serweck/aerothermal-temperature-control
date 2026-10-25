@@ -34,6 +34,9 @@ export interface AerothermalCardConfig extends LovelaceCardConfig {
    *  en calor y frio). En calor y frio, el desplegable del motor muestra un
    *  interruptor que las enciende o apaga todas a la vez. */
   auto_mode_automations?: string[];
+  /** salto de los botones + y - del dial en °C; vacio = target_temp_step
+   *  del termostato (0,5 si no lo declara). El arrastre no cambia. */
+  step?: number;
   /** presets visibles. */
   presets?: PresetItem[];
   /** modos visibles: subconjunto de off|cool|heat. */

@@ -27,6 +27,12 @@ const SCHEMA = [
     selector: { entity: { domain: "climate" } },
   },
   { name: "current_sensor", selector: { entity: { domain: "sensor" } } },
+  {
+    name: "step",
+    selector: {
+      number: { min: 0.1, max: 5, step: 0.1, mode: "box", unit_of_measurement: "°C" },
+    },
+  },
   { name: "pump_switch", selector: { entity: { domain: "switch" } } },
   { name: "inertia_sensor", selector: { entity: { domain: "sensor" } } },
   { name: "lock_entity", selector: { entity: { domain: "input_boolean" } } },
@@ -43,6 +49,7 @@ const LABELS: Record<string, string> = {
   thermostat_cool: "Termostato FRIO (generic_thermostat)",
   water_climate: "Climate del motor LG",
   current_sensor: "Sensor temperatura zona (real, opcional)",
+  step: "Salto de los botones + y - del dial (°C, opcional)",
   pump_switch: "Rele de la bomba (opcional)",
   inertia_sensor: "Sensor de inercia (opcional)",
   lock_entity: "Bloqueo de los modos automaticos (input_boolean, opcional)",

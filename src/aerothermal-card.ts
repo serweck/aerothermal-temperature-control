@@ -648,7 +648,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     if (this.dialDisabled) return;
     const e = this.activeThermostat;
     if (!e) return;
-    const step = Number(e.attributes.target_temp_step ?? 0.5);
+    const step = Number(this.config.step ?? e.attributes.target_temp_step ?? 0.5);
     const cur =
       this._pendingTemp ?? Number(e.attributes.temperature ?? e.attributes.min_temp ?? 20);
     const min = Number(e.attributes.min_temp ?? -Infinity);

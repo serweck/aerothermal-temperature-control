@@ -4,6 +4,16 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.10.0] - 2026-10-25
+
+### Anadido
+- **Salto configurable de los botones `+`/`−` del dial** (`step`, en °C; tambien en el editor visual).
+  Sin definir, se usa el `target_temp_step` del termostato, como hasta ahora. El arrastre no cambia.
+- **Objetivo del agua por modo** (automatizacion I en `ha-config/`, en el servidor). El LG tiene un
+  solo objetivo de agua; ahora calor y frio guardan cada uno el suyo
+  (`input_number.aerotermia_objetivo_agua_calor` / `_frio`) y al volver a un modo se le devuelve el
+  suyo al LG. Funciona tambien si el modo se cambia desde el panel del LG.
+
 ## [1.9.0] - 2026-10-17
 
 ### Cambiado

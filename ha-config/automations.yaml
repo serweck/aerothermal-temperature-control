@@ -510,3 +510,78 @@
             - action: climate.set_preset_mode
               target: { entity_id: "{{ termostato }}" }
               data: { preset_mode: away }
+
+# ---------------------------------------------------------------------
+# I) Objetivo del agua por modo. El LG tiene un solo objetivo de agua y
+#    no lo recuerda por modo: al pasar de calor (30 °C) a frio se queda
+#    en lo que le parece. Cada modo guarda el suyo en un input_number y,
+#    al volver a ese modo, se le devuelve al LG.
+#
+#    Guardar: cambios del objetivo con el LG en calor o frio, estables
+#    5 s. Se ignoran dos: el que llega en la misma actualizacion que el
+#    cambio de modo (es el valor que pone el LG, no el usuario) y el eco
+#    de la propia recuperacion (lleva parent_id, como en C). Lo que se
+#    ajuste justo despues de cambiar de modo SI se guarda.
+#    Recuperar: 10 s despues de entrar en calor o frio (para que el LG ya
+#    haya publicado los limites del modo nuevo), recortado a min/max, y
+#    solo si en esos 10 s nadie ha tocado el objetivo.
+#    Auto no se toca: ahi el LG decide el sentido.
+# ---------------------------------------------------------------------
+- id: aerotermia_objetivo_agua_por_modo
+  alias: "Aerotermia - Objetivo del agua por modo (calor / frio)"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      attribute: temperature
+      for: { seconds: 5 }
+      id: guardar
+    - trigger: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      to: [heat, cool]
+      for: { seconds: 10 }
+      id: recuperar
+  conditions:
+    - condition: state
+      entity_id: climate.bomba_de_calor_aire_agua_2
+      state: [heat, cool]
+  actions:
+    - variables:
+        lg: climate.bomba_de_calor_aire_agua_2
+        ayudante: >-
+          {{ 'input_number.aerotermia_objetivo_agua_calor' if is_state(lg, 'heat')
+             else 'input_number.aerotermia_objetivo_agua_frio' }}
+        actual: "{{ state_attr(lg, 'temperature') }}"
+    - choose:
+        - alias: "Entra en calor o frio: recupera el objetivo de ese modo"
+          conditions:
+            - condition: trigger
+              id: recuperar
+          sequence:
+            - variables:
+                objetivo: >-
+                  {{ [[states(ayudante) | float(0), state_attr(lg, 'min_temp') | float(0)] | max,
+                      state_attr(lg, 'max_temp') | float(99)] | min }}
+            - if:
+                - condition: template
+                  value_template: >-
+                    {{ actual == trigger.to_state.attributes.temperature
+                       and actual | float(-1) != objetivo }}
+              then:
+                - action: climate.set_temperature
+                  target: { entity_id: "{{ lg }}" }
+                  data: { temperature: "{{ objetivo }}" }
+        - alias: "Cambia el objetivo: lo guarda en el modo actual"
+          conditions:
+            - condition: trigger
+              id: guardar
+            - condition: template
+              value_template: >-
+                {{ trigger.to_state.state == states(lg)
+                   and trigger.from_state.state == trigger.to_state.state
+                   and trigger.to_state.context.parent_id is none
+                   and actual is number }}
+          sequence:
+            - action: input_number.set_value
+              target: { entity_id: "{{ ayudante }}" }
+              data: { value: "{{ actual }}" }
