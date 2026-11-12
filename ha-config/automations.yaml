@@ -580,7 +580,9 @@
                 {{ trigger.to_state.state == states(lg)
                    and trigger.from_state.state == trigger.to_state.state
                    and trigger.to_state.context.parent_id is none
-                   and actual is number }}
+                   and actual is number
+                   and not (is_state('switch.socket_garaje_aerotermia_bomba', 'off')
+                            and actual | float(-1) == states('input_number.aerotermia_objetivo_agua_reposo') | float(-2)) }}
           sequence:
             - action: input_number.set_value
               target: { entity_id: "{{ ayudante }}" }
