@@ -4,6 +4,16 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.12.0] - 2026-11-19
+
+### Anadido
+- **Objetivo del agua en reposo** (`water_heat_target`, opcional; tambien en el editor visual). En
+  calor con la bomba del suelo parada, el LG baja al objetivo de reposo (paquete
+  `aerotermia_reposo.yaml` de Paneles). Ahora la tarjeta muestra y ajusta ahi el objetivo de calor
+  (`input_number.aerotermia_objetivo_agua_calor`), con un «en reposo a 25 °C» debajo; el LG sigue en
+  reposo y sube a ese objetivo cuando arranca la bomba. Antes `+`/`−` cambiaban el objetivo del LG
+  partiendo del de reposo (25 → 24) y la automatizacion I guardaba ese 24 como objetivo de calor.
+
 ## [1.11.1] - 2026-11-19
 
 ### Corregido

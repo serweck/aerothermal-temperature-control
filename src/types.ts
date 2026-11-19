@@ -20,6 +20,10 @@ export interface AerothermalCardConfig extends LovelaceCardConfig {
   thermostat_cool: string;
   /** climate del motor LG (objetivo agua + impulsion/inercia). */
   water_climate: string;
+  /** input_number con el objetivo del agua en calor (el que el LG recupera al
+   *  arrancar la bomba). Si se define y en calor el LG tiene otro objetivo
+   *  (reposo), la tarjeta muestra y ajusta este, no el del LG. */
+  water_heat_target?: string;
   /** sensor de temperatura de la zona; si se define, el dial muestra su valor
    *  directamente (mas fiable que current_temperature del termostato). */
   current_sensor?: string;

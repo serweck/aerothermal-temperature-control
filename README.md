@@ -132,6 +132,7 @@ mode_select: input_select.aerotermia_modo
 thermostat_heat: climate.suelo_radiante_calor
 thermostat_cool: climate.suelo_radiante_frio
 water_climate: climate.bomba_de_calor_aire_agua_2
+water_heat_target: input_number.aerotermia_objetivo_agua_calor  # se ajusta en reposo
 current_sensor: sensor.temperatura_termostato   # temp real del dial (recomendado)
 step: 0.5                 # salto de los botones + y − del dial (opcional)
 pump_switch: switch.socket_garaje_aerotermia_bomba
@@ -160,6 +161,7 @@ También hay **editor visual** para los entity_id principales (presets y `show_m
 | `thermostat_heat` | ✅ | `generic_thermostat` de calor. |
 | `thermostat_cool` | ✅ | `generic_thermostat` de frío. |
 | `water_climate` | ✅ | Climate del motor LG. |
+| `water_heat_target` | — | `input_number` con el objetivo del agua en calor (p. ej. `input_number.aerotermia_objetivo_agua_calor`). En calor con la bomba parada y el LG en reposo (otro objetivo), la tarjeta muestra y ajusta este, con «en reposo a X °C» debajo; el LG sube a él al arrancar la bomba. |
 | `current_sensor` | — | Sensor de la zona para la temperatura real del dial. Recomendado: más fiable que el `current_temperature` del termostato (que puede no refrescar). |
 | `step` | — | Salto en °C de los botones `+`/`−` del dial (p. ej. `1`). Por defecto, el `target_temp_step` del termostato (0,5 si no lo declara). El arrastre del dial no cambia. |
 | `pump_switch` | — | Relé de la bomba (indicador). |
