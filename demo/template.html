@@ -113,7 +113,7 @@
           <li><b>Calor:</b> candado arriba a la derecha y la línea «Agua · Impulsión» con los iconos de motor, bomba, modos automáticos y el preset puesto (el sofá es Confort).</li>
           <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco, Manual) y, en calor y en frío, «Modos automáticos» con su interruptor, que enciende y apaga juntas las automatizaciones del horario y de vacaciones.</li>
           <li><b>Manual:</b> en calor, pulsa + o − en el dial. Se marca Manual; si llegas a la temperatura de un preset (eco 20, confort 22), se marca ese preset. Las temperaturas de los presets no cambian.</li>
-          <li><b>Reposo del agua:</b> en calor, pon la bomba del suelo en «parada». El LG baja a 25 y el desplegable muestra el objetivo de calor (35, «en reposo a 25 °C»); + y − cambian el 35, y al volver a «en marcha» el LG sube a lo que dejaste.</li>
+          <li><b>Reposo del agua:</b> en calor, el desplegable tiene «Objetivo agua» (35) y «Objetivo en reposo» (25); el que usa el LG va resaltado. Pon la bomba del suelo en «parada»: el LG baja a 25 y se resalta el reposo. Cada fila cambia solo su objetivo.</li>
           <li><b>Frío y auto:</b> en frío también salen el interruptor y el icono de calendario; en auto, solo los presets.</li>
         </ol>
       </section>
@@ -215,6 +215,7 @@ const CONFIG = {
   thermostat_cool: "climate.suelo_radiante_frio",
   water_climate: "climate.bomba_de_calor_aire_agua_2",
   water_heat_target: "input_number.aerotermia_objetivo_agua_calor",
+  water_rest_target: "input_number.aerotermia_objetivo_agua_reposo",
   pump_switch: "switch.socket_garaje_aerotermia_bomba",
   current_sensor: "sensor.temperatura_termostato",
   inertia_sensor: "",
@@ -236,7 +237,7 @@ const initial = () => ({
   lgActive: true,
   pumpOn: true,
   water: 35, // objetivo del agua en calor (input_number.aerotermia_objetivo_agua_calor)
-  restWater: 25, // reposo: en calor con la bomba parada, el LG baja a este
+  restWater: 25, // reposo (input_number.aerotermia_objetivo_agua_reposo): en calor con la bomba parada, el LG baja a este
   inertia: 33.5,
   therm: {
     "climate.suelo_radiante_calor": { mode: "heat", preset: "comfort", target: 22, min: 15, max: 28, presets: { away: 15, comfort: 22, eco: 20 } },
@@ -264,11 +265,12 @@ function buildStates() {
     });
   }
   put("input_number.aerotermia_objetivo_agua_calor", String(S.water), { min: 20, max: 45, step: 1 });
+  put("input_number.aerotermia_objetivo_agua_reposo", String(S.restWater), { min: 20, max: 45, step: 1 });
   const lgOn = S.mode !== "off";
   const resting = S.mode === "calor" && !S.pumpOn;
   put("climate.bomba_de_calor_aire_agua_2", lgState[S.mode], {
     min_temp: 20, max_temp: 45,
-    temperature: lgOn ? (resting ? S.restWater : S.water) : null, current_temperature: S.inertia,
+    temperature: lgOn ? (resting ? Math.min(S.restWater, S.water) : S.water) : null, current_temperature: S.inertia,
     hvac_action: lgOn && S.lgActive ? (S.mode === "frio" ? "cooling" : "heating") : "idle",
   });
   return st;
@@ -297,9 +299,9 @@ function callService(domain, service, data = {}) {
     if (domain === "input_select") S.mode = data.option;
     else if (domain === "input_boolean" && service === "toggle") S.lock = !S.lock;
     else if (domain === "automation") S.autos[id] = service === "turn_on";
-    else if (domain === "input_number") S.water = data.value;
+    else if (domain === "input_number") { if (id.endsWith("_reposo")) S.restWater = data.value; else S.water = data.value; }
     else if (domain === "climate") {
-      if (id === "climate.bomba_de_calor_aire_agua_2") { if (service === "set_temperature") S.water = data.temperature; continue; }
+      if (id === "climate.bomba_de_calor_aire_agua_2") { if (service === "set_temperature" && !(S.mode === "calor" && !S.pumpOn)) S.water = data.temperature; continue; }
       const t = S.therm[id];
       // Como generic_thermostat: un objetivo igual al de un preset marca ese preset, si no
       // queda en "none" (Manual); al volver a "none" recupera el ultimo objetivo manual.

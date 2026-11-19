@@ -4,6 +4,15 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.13.0] - 2026-11-19
+
+### Cambiado
+- **Dos objetivos del agua en calor:** «Objetivo agua» (`water_heat_target`) y «Objetivo en reposo»
+  (`water_rest_target`, opcion nueva, tambien en el editor visual), cada uno con su `+`/`−`. El que
+  usa el LG en ese momento va resaltado y el otro en gris. Cada fila cambia solo su `input_number`;
+  si es el que esta usando el LG, tambien se lo manda al LG. El reposo no puede pasar del de calor.
+  En frio y auto sigue una sola fila que ajusta el LG. Sustituye al «en reposo a X °C» de la 1.12.0.
+
 ## [1.12.0] - 2026-11-19
 
 ### Anadido

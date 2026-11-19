@@ -27,6 +27,7 @@ const SCHEMA = [
     selector: { entity: { domain: "climate" } },
   },
   { name: "water_heat_target", selector: { entity: { domain: "input_number" } } },
+  { name: "water_rest_target", selector: { entity: { domain: "input_number" } } },
   { name: "current_sensor", selector: { entity: { domain: "sensor" } } },
   {
     name: "step",
@@ -49,7 +50,8 @@ const LABELS: Record<string, string> = {
   thermostat_heat: "Termostato CALOR (generic_thermostat)",
   thermostat_cool: "Termostato FRIO (generic_thermostat)",
   water_climate: "Climate del motor LG",
-  water_heat_target: "Objetivo del agua en calor (input_number, opcional; se ajusta en reposo)",
+  water_heat_target: "Objetivo del agua en calor (input_number, opcional)",
+  water_rest_target: "Objetivo del agua en reposo (input_number, opcional; con el de calor)",
   current_sensor: "Sensor temperatura zona (real, opcional)",
   step: "Salto de los botones + y - del dial (°C, opcional)",
   pump_switch: "Rele de la bomba (opcional)",

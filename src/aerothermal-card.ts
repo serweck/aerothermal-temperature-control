@@ -109,6 +109,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       thermostat_cool: "climate.suelo_radiante_frio",
       water_climate: "climate.bomba_de_calor_aire_agua_2",
       water_heat_target: "input_number.aerotermia_objetivo_agua_calor",
+      water_rest_target: "input_number.aerotermia_objetivo_agua_reposo",
       current_sensor: "sensor.temperatura_termostato",
       pump_switch: "switch.socket_garaje_aerotermia_bomba",
       inertia_sensor: "",
@@ -186,18 +187,23 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   private get dialDisabled(): boolean {
     return this.isOff || this.isAuto;
   }
-  /** En calor con `water_heat_target` y la bomba parada, el objetivo de calor
-   *  guardado cuando el LG tiene otro (reposo); si no, null. Con la bomba en
-   *  marcha el objetivo del LG es el de calor (la automatizacion I lo guarda). */
-  private get waterRest(): { heat: number; rest: unknown } | null {
+  /** En calor con `water_heat_target`: el objetivo de calor, el de reposo (si
+   *  hay `water_rest_target`) y si el LG esta ahora en reposo (bomba parada y
+   *  un objetivo distinto del de calor). Fuera de calor, o sin la opcion, null:
+   *  una sola fila que ajusta el LG directamente. */
+  private get waterTargets(): { heat: number; rest: number | null; resting: boolean } | null {
     const id = this.config.water_heat_target;
-    const pump = this.config.pump_switch ? this.hass.states[this.config.pump_switch] : undefined;
-    if (!id || !this.isHeat || pump?.state !== "off") return null;
+    if (!id || !this.isHeat) return null;
     const heat = Number(this.hass.states[id]?.state);
     const lg = this.hass.states[this.config.water_climate];
     if (!Number.isFinite(heat) || !lg) return null;
-    const rest = lg.attributes.temperature;
-    return rest != null && Number(rest) !== heat ? { heat, rest } : null;
+    const restId = this.config.water_rest_target;
+    const restVal = restId ? Number(this.hass.states[restId]?.state) : NaN;
+    const rest = Number.isFinite(restVal) ? restVal : null;
+    const pump = this.config.pump_switch ? this.hass.states[this.config.pump_switch] : undefined;
+    const lgTarget = lg.attributes.temperature;
+    const resting = pump?.state === "off" && lgTarget != null && Number(lgTarget) !== heat;
+    return { heat, rest, resting };
   }
 
   private get activeThermostatId(): string {
@@ -458,9 +464,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
 
     // Plegado: una sola linea con lo esencial (como los ajustes del jacuzzi).
     const fmt = (v: unknown) => (v != null ? String(v).replace(".", ",") : "--");
-    const rest = this.waterRest;
-    // En reposo, el de calor (el reposo se detalla al desplegar).
-    const summary = `Agua ${fmt(rest ? rest.heat : wTarget)}° · Impulsión ${fmt(inertia)}°`;
+    const targets = this.waterTargets;
+    // En calor, el objetivo de calor (el reposo se detalla al desplegar).
+    const summary = `Agua ${fmt(targets ? targets.heat : wTarget)}° · Impulsión ${fmt(inertia)}°`;
 
     return html`
       <div class="section ${this._lgOpen ? "open" : ""}">
@@ -505,27 +511,36 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     pump: HaEntity | undefined,
     pumpOn: boolean
   ): TemplateResult {
-    // En reposo se muestra y ajusta el objetivo de calor: el LG lo recupera al
-    // arrancar la bomba (no se toca el de reposo).
-    const rest = this.waterRest;
-    const shown = rest ? rest.heat : wTarget;
-    return html`
-        <div class="row">
-          <span class="label"
-            >Objetivo agua${rest
-              ? html`<span class="sub">en reposo a ${String(rest.rest).replace(".", ",")} °C</span>`
-              : nothing}</span
-          >
-          <div class="row-right">
-            <button class="round sm" @click=${() => this._stepWater(-1)}>
-              <ha-icon icon="mdi:minus"></ha-icon>
-            </button>
-            <span class="value-num">${shown != null ? shown : "--"} °C</span>
-            <button class="round sm" @click=${() => this._stepWater(1)}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-            </button>
-          </div>
+    // En calor: objetivo de calor y, si esta configurado, el de reposo, cada
+    // uno con sus botones; el que usa ahora el LG va resaltado.
+    const t = this.waterTargets;
+    const row = (
+      label: string,
+      value: unknown,
+      which: "heat" | "rest" | null,
+      dim: boolean
+    ) => html`
+      <div class="row ${dim ? "dim" : ""}">
+        <span class="label">${label}</span>
+        <div class="row-right">
+          <button class="round sm" @click=${() => this._stepWater(-1, which)}>
+            <ha-icon icon="mdi:minus"></ha-icon>
+          </button>
+          <span class="value-num">${value != null ? value : "--"} °C</span>
+          <button class="round sm" @click=${() => this._stepWater(1, which)}>
+            <ha-icon icon="mdi:plus"></ha-icon>
+          </button>
         </div>
+      </div>
+    `;
+    const restShown = t?.resting ? this.hass.states[this.config.water_climate]?.attributes.temperature : t?.rest;
+    return html`
+        ${t
+          ? html`${row("Objetivo agua", t.heat, "heat", t.resting)}
+            ${t.rest != null
+              ? row("Objetivo en reposo", restShown, "rest", !t.resting)
+              : nothing}`
+          : row("Objetivo agua", wTarget, null, false)}
         <div class="row">
           <span class="label">Impulsion / inercia</span>
           <div class="row-right">
@@ -704,15 +719,16 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       : { label: MANUAL_PRESET.label, preset: MANUAL_PRESET.preset };
     return [...list, manual];
   }
-  private _stepWater(dir: number): void {
-    const rest = this.waterRest;
-    if (!rest) {
+  /** `which` null: el objetivo del LG (frio, auto, o sin water_heat_target).
+   *  "heat"/"rest": el input_number de calor o de reposo; si es el que usa el LG
+   *  ahora, tambien se le manda al LG para que se note al momento. */
+  private async _stepWater(dir: number, which: "heat" | "rest" | null): Promise<void> {
+    const t = this.waterTargets;
+    if (!which || !t) {
       this._step(this.config.water_climate, dir);
       return;
     }
-    // En reposo: se cambia el objetivo de calor, dentro de los limites del
-    // input_number y del LG. El LG sigue en reposo hasta que arranque la bomba.
-    const id = this.config.water_heat_target!;
+    const id = which === "heat" ? this.config.water_heat_target! : this.config.water_rest_target!;
     const helper = this.hass.states[id];
     const lg = this.hass.states[this.config.water_climate];
     const step = Number(helper?.attributes.step ?? 1);
@@ -720,15 +736,23 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       Number(helper?.attributes.min ?? -Infinity),
       Number(lg?.attributes.min_temp ?? -Infinity)
     );
+    // El reposo nunca por encima del de calor (la automatizacion lo recorta igual).
     const max = Math.min(
       Number(helper?.attributes.max ?? Infinity),
-      Number(lg?.attributes.max_temp ?? Infinity)
+      Number(lg?.attributes.max_temp ?? Infinity),
+      which === "rest" ? t.heat : Infinity
     );
-    const next = Math.min(max, Math.max(min, rest.heat + dir * step));
-    this.hass.callService("input_number", "set_value", {
-      entity_id: id,
-      value: Number(next.toFixed(1)),
-    });
+    const cur = which === "heat" ? t.heat : t.rest ?? t.heat;
+    const next = Number(Math.min(max, Math.max(min, cur + dir * step)).toFixed(1));
+    if (next === cur) return;
+    await this.hass.callService("input_number", "set_value", { entity_id: id, value: next });
+    const inUse = which === "heat" ? !t.resting : t.resting;
+    if (inUse) {
+      await this.hass.callService("climate", "set_temperature", {
+        entity_id: this.config.water_climate,
+        temperature: next,
+      });
+    }
   }
   private _setPreset(preset: string): void {
     if (this.isOff) return;
@@ -1135,9 +1159,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     .label {
       font-size: 0.9rem;
     }
-    .label .sub {
-      display: block;
-      font-size: 0.75rem;
+    .row.dim .label,
+    .row.dim .value-num {
       color: var(--secondary-text-color);
     }
     .row-right {
