@@ -669,10 +669,15 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
       });
   }
 
-  /** Presets del YAML (o los de serie) con Manual al final si no esta. */
+  /** Presets del YAML (o los de serie) con Manual al final si no esta. Manual
+   *  lleva icono solo si los demas lo llevan, para no cambiar el alto de la fila. */
   private get presetList(): PresetItem[] {
     const list = this.config.presets ?? DEFAULT_PRESETS;
-    return list.some((p) => p.preset === MANUAL_PRESET.preset) ? list : [...list, MANUAL_PRESET];
+    if (list.some((p) => p.preset === MANUAL_PRESET.preset)) return list;
+    const manual = list.some((p) => p.icon)
+      ? MANUAL_PRESET
+      : { label: MANUAL_PRESET.label, preset: MANUAL_PRESET.preset };
+    return [...list, manual];
   }
   private _stepWater(dir: number): void {
     this._step(this.config.water_climate, dir);

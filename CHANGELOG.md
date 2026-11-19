@@ -4,6 +4,12 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.11.1] - 2026-11-19
+
+### Corregido
+- **Manual con icono hacia mas alta la fila de presets** cuando los del YAML no llevan icono. El
+  Manual que anade la tarjeta solo lleva icono si los demas presets lo llevan.
+
 ## [1.11.0] - 2026-11-19
 
 ### Anadido
