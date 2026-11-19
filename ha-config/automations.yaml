@@ -247,10 +247,14 @@
 #    de Node-RED, que se borraron ese dia.
 #
 #    Solo cambia el PRESET del termostato de calor; la temperatura de
-#    cada preset vive en el termostato y la tarjeta la guarda ahi (v1.6.0).
+#    cada preset vive en las opciones del termostato (fija: el dial de la
+#    tarjeta no la cambia desde la v1.11.0).
 #    comfort desde el arranque calculado para tener la casa lista a la
 #    hora de confort, eco desde la hora de eco. En frio, auto y off no
 #    hace nada, y tampoco con el candado (input_boolean.bloquear_termostato).
+#    Con el termostato en Manual (preset none: objetivo puesto a mano que no
+#    coincide con ningun preset) el horario no actua hasta que se elija un
+#    preset; un cambio de modo a calor o el fin de las vacaciones si.
 #    La alarma no influye. Con el modo vacaciones tampoco actua (lo lleva H);
 #    al terminar, aplica el preset que toque por horario.
 # ---------------------------------------------------------------------
@@ -285,6 +289,17 @@
     - condition: state
       entity_id: input_boolean.modo_vacaciones
       state: "off"
+    # Manual se respeta frente al horario (no frente a un cambio de modo)
+    - condition: or
+      conditions:
+        - condition: trigger
+          id: modo
+        - condition: not
+          conditions:
+            - condition: state
+              entity_id: climate.suelo_radiante_calor
+              attribute: preset_mode
+              state: none
   actions:
     - choose:
         - alias: Toca confort

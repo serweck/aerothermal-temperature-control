@@ -4,6 +4,28 @@ Todas las versiones notables de este proyecto se documentan aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/) y
 [SemVer](https://semver.org/lang/es/).
 
+## [1.11.0] - 2026-11-19
+
+### Anadido
+- **Preset Manual.** Junto a Fuera/Confort/Eco sale un boton **Manual** (`preset_mode: none` del
+  `generic_thermostat`). Si el YAML de `presets` no lo lista, la tarjeta lo anade al final; para
+  cambiarle etiqueta o icono, ponlo en el YAML con `preset: none`.
+
+### Cambiado
+- **El dial ya no cambia la temperatura de los presets.** Mover el dial pone ese objetivo tal cual:
+  si coincide con la temperatura de un preset se marca ese preset, y si no, Manual (lo decide el
+  propio `generic_thermostat`). Las temperaturas de los presets se cambian en Ajustes → Ayudantes →
+  el termostato → Opciones. Sustituye a lo de la v1.6.0.
+- **Los modos automaticos respetan Manual** (automatizacion E en `ha-config/`): con el termostato de
+  calor en Manual, el horario de confort y eco no lo pisa hasta que se elija un preset. Un cambio
+  de modo a calor o el fin de las vacaciones si aplican el horario; las vacaciones (H) actuan igual.
+
+### Corregido
+- **Subir la temperatura con un preset marcado volvia al valor anterior al refrescar.** La v1.6.0
+  guardaba el valor en el preset, pero el termostato se recargaba recuperando el objetivo viejo y
+  volver a poner el mismo preset no hace nada en `generic_thermostat`. Desaparece con el cambio de
+  arriba.
+
 ## [1.10.0] - 2026-10-25
 
 ### Anadido

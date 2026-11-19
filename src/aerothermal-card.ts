@@ -41,6 +41,10 @@ const DEFAULT_PRESETS: PresetItem[] = [
   { label: "Dormir", preset: "sleep", icon: "mdi:bed" },
 ];
 
+/** preset_mode "none" del generic_thermostat: objetivo puesto a mano que no
+ *  coincide con ningun preset. Se anade al final si el YAML no lo lista. */
+const MANUAL_PRESET: PresetItem = { label: "Manual", preset: "none", icon: "mdi:hand-back-right" };
+
 const MODE_META: Record<string, { icon: string; label: string; option: string }> = {
   off: { icon: "mdi:power", label: "Apagado", option: MODE_OPTION.off },
   cool: { icon: "mdi:snowflake", label: "Frio", option: MODE_OPTION.cool },
@@ -73,13 +77,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   @state() private _dragging = false;
   @state() private _dragTemp: number | null = null;
   @state() private _lgOpen = false;
-  /** Objetivo pedido con un preset activo que aun se esta guardando en el
-   *  preset del termostato (se pinta en el dial mientras tanto). */
+  /** Objetivo pedido que el termostato aun no refleja (se pinta en el dial
+   *  mientras tanto y es la base de la siguiente pulsacion de +/-). */
   @state() private _pendingTemp: number | null = null;
-
-  private _saveTimer: number | undefined;
-  private _saving = false;
-  private _entryIds: Record<string, string> = {};
 
   // angulo (0-360) de la bolita en el ultimo render, para el hit-test del arrastre
   private _valueAngle = 0;
@@ -93,7 +93,6 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
     window.removeEventListener("pointercancel", this._boundUp);
-    window.clearTimeout(this._saveTimer);
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -150,9 +149,8 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   }
 
   protected willUpdate(): void {
-    // El guardado termino y el termostato ya refleja el objetivo: soltamos el
-    // valor provisional.
-    if (this._pendingTemp != null && !this._saving && this.hass && this.config) {
+    // El termostato ya refleja el objetivo: soltamos el valor provisional.
+    if (this._pendingTemp != null && this.hass && this.config) {
       const t = this.activeThermostat?.attributes.temperature;
       if (t != null && Number(t) === this._pendingTemp) this._pendingTemp = null;
     }
@@ -549,7 +547,7 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
   /** Los presets viven en el desplegable (normalmente los cambian las
    *  automatizaciones): plegado, su icono dice cual esta puesto. */
   private _renderPresetStatus(active?: string): TemplateResult | typeof nothing {
-    const p = (this.config.presets ?? DEFAULT_PRESETS).find((x) => x.preset === active);
+    const p = this.presetList.find((x) => x.preset === active);
     if (!p?.icon) return nothing;
     return html`<ha-icon class="status on" title=${`Preset: ${p.label}`} icon=${p.icon}></ha-icon>`;
   }
@@ -582,9 +580,9 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     const supported = this.hass.states[this.activeThermostatId]?.attributes
       .preset_modes as string[] | undefined;
     if (!supported) return nothing;
-    const presets = (this.config.presets ?? DEFAULT_PRESETS).filter((p) =>
-      supported.includes(p.preset)
-    );
+    const presets = this.presetList.filter((p) => supported.includes(p.preset));
+    // Solo Manual no es una eleccion: sin presets de verdad no hay fila.
+    if (!presets.some((p) => p.preset !== MANUAL_PRESET.preset)) return nothing;
     if (!presets.length) return nothing;
     return html`
       <div class="presets">
@@ -656,104 +654,32 @@ export class AerothermalCard extends LitElement implements LovelaceCard {
     this._setTarget(Number(Math.min(max, Math.max(min, cur + dir * step)).toFixed(1)));
   }
 
-  /** Con un preset activo, el objetivo nuevo se guarda como temperatura de ese
-   *  preset (opciones del generic_thermostat) y el preset sigue marcado; asi las
-   *  automatizaciones, que solo cambian el preset, respetan lo que se ajusto.
-   *  Sin preset, o si no se puede (usuario sin permisos de administrador), es un
-   *  set_temperature normal, que en HA deja el preset en "none". */
+  /** El dial pone el objetivo tal cual; las temperaturas de los presets no se
+   *  tocan. El generic_thermostat elige el preset solo: si el objetivo coincide
+   *  con la temperatura de uno lo marca, y si no queda en "none" (Manual). */
   private _setTarget(temp: number): void {
-    const entityId = this.activeThermostatId;
-    const preset = this.activeThermostat?.attributes.preset_mode as string | undefined;
-    if (!preset || preset === "none") {
-      this.hass.callService("climate", "set_temperature", {
-        entity_id: entityId,
-        temperature: temp,
-      });
-      return;
-    }
-    // Cada guardado recarga el termostato: esperamos a que se dejen de pulsar
-    // los botones para guardar una sola vez.
     this._pendingTemp = temp;
-    window.clearTimeout(this._saveTimer);
-    this._saveTimer = window.setTimeout(() => this._flushPresetTemp(entityId, preset), 1200);
-  }
-
-  private async _flushPresetTemp(entityId: string, preset: string): Promise<void> {
-    if (this._saving) return; // al terminar el guardado en curso se reintenta
-    const temp = this._pendingTemp;
-    if (temp == null) return;
-    this._saving = true;
-    try {
-      await this._savePresetTemp(entityId, preset, temp);
-      await this.hass.callService("climate", "set_preset_mode", {
-        entity_id: entityId,
-        preset_mode: preset,
-      });
-    } catch (err) {
-      console.warn("aerothermal: no se pudo guardar la temperatura del preset", err);
-      await this.hass.callService("climate", "set_temperature", {
-        entity_id: entityId,
+    this.hass
+      .callService("climate", "set_temperature", {
+        entity_id: this.activeThermostatId,
         temperature: temp,
+      })
+      .catch(() => {
+        if (this._pendingTemp === temp) this._pendingTemp = null;
       });
-    } finally {
-      this._saving = false;
-    }
-    // Se pidio otro valor mientras guardabamos.
-    if (this._pendingTemp != null && this._pendingTemp !== temp) {
-      this._flushPresetTemp(entityId, preset);
-    } else {
-      this.requestUpdate();
-    }
   }
 
-  /** Recorre el options flow del generic_thermostat (paso init y paso presets)
-   *  reenviando los valores actuales y cambiando solo <preset>_temp. */
-  private async _savePresetTemp(entityId: string, preset: string, temp: number): Promise<void> {
-    let entryId = this._entryIds[entityId];
-    if (!entryId) {
-      const reg = await this.hass.callWS<{ config_entry_id: string | null }>({
-        type: "config/entity_registry/get",
-        entity_id: entityId,
-      });
-      if (!reg.config_entry_id) throw new Error(`${entityId} sin config entry`);
-      entryId = this._entryIds[entityId] = reg.config_entry_id;
-    }
-    const current = (schema: any[] = []) => {
-      const data: Record<string, unknown> = {};
-      for (const f of schema) {
-        const v = f.description?.suggested_value;
-        if (v !== undefined) data[f.name] = v;
-      }
-      return data;
-    };
-    const flow = await this.hass.callApi<any>("POST", "config/config_entries/options/flow", {
-      handler: entryId,
-    });
-    const url = `config/config_entries/options/flow/${flow.flow_id}`;
-    try {
-      let step = flow;
-      if (step.step_id === "init") {
-        step = await this.hass.callApi<any>("POST", url, current(step.data_schema));
-      }
-      const key = `${preset}_temp`;
-      if (step.step_id !== "presets" || !step.data_schema?.some((f: any) => f.name === key)) {
-        throw new Error(`options flow sin ${key}`);
-      }
-      const done = await this.hass.callApi<any>("POST", url, {
-        ...current(step.data_schema),
-        [key]: temp,
-      });
-      if (done.type !== "create_entry") throw new Error(`options flow: ${done.type}`);
-    } catch (err) {
-      await this.hass.callApi("DELETE", url).catch(() => undefined);
-      throw err;
-    }
+  /** Presets del YAML (o los de serie) con Manual al final si no esta. */
+  private get presetList(): PresetItem[] {
+    const list = this.config.presets ?? DEFAULT_PRESETS;
+    return list.some((p) => p.preset === MANUAL_PRESET.preset) ? list : [...list, MANUAL_PRESET];
   }
   private _stepWater(dir: number): void {
     this._step(this.config.water_climate, dir);
   }
   private _setPreset(preset: string): void {
     if (this.isOff) return;
+    this._pendingTemp = null;
     this.hass.callService("climate", "set_preset_mode", {
       entity_id: this.activeThermostatId,
       preset_mode: preset,

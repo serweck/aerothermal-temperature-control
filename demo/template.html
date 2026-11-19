@@ -87,7 +87,6 @@
   .log li { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 6px; background: var(--bg); overflow-wrap: anywhere; }
   .log time { color: var(--muted); font-variant-numeric: tabular-nums; }
   .log .svc { color: var(--accent); font-weight: 500; }
-  .log .flow { color: var(--cool); font-weight: 500; }
   .log .empty { display: block; background: transparent; color: var(--muted); font-family: var(--font-ui); font-size: 0.85rem; padding: 0; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -112,8 +111,8 @@
         <ol class="checks">
           <li><b>Apagada:</b> pulsa el botón de apagado, el primero de la barra de modos. Queda una sola fila con la temperatura y los modos.</li>
           <li><b>Calor:</b> candado arriba a la derecha y la línea «Agua · Impulsión» con los iconos de motor, bomba, modos automáticos y el preset puesto (el sofá es Confort).</li>
-          <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco) y, en calor y en frío, «Modos automáticos» con su interruptor, que enciende y apaga juntas las automatizaciones del horario y de vacaciones.</li>
-          <li><b>Temperatura en el preset:</b> con Confort marcado, pulsa + o − en el dial. A los 1,2 s se guarda en el preset y Confort sigue marcado.</li>
+          <li><b>Desplegable:</b> toca esa línea. Dentro están los presets (Fuera, Confort, Eco, Manual) y, en calor y en frío, «Modos automáticos» con su interruptor, que enciende y apaga juntas las automatizaciones del horario y de vacaciones.</li>
+          <li><b>Manual:</b> en calor, pulsa + o − en el dial. Se marca Manual; si llegas a la temperatura de un preset (eco 20, confort 22), se marca ese preset. Las temperaturas de los presets no cambian.</li>
           <li><b>Frío y auto:</b> en frío también salen el interruptor y el icono de calendario; en auto, solo los presets.</li>
         </ol>
       </section>
@@ -236,7 +235,6 @@ const initial = () => ({
   pumpOn: true,
   water: 35,
   inertia: 33.5,
-  reloading: null,
   therm: {
     "climate.suelo_radiante_calor": { mode: "heat", preset: "comfort", target: 22, min: 15, max: 28, presets: { away: 15, comfort: 22, eco: 20 } },
     "climate.suelo_radiante_frio": { mode: "cool", preset: "comfort", target: 23, min: 20, max: 30, presets: { away: 28, comfort: 23, eco: 25 } },
@@ -254,7 +252,6 @@ function buildStates() {
   put("input_boolean.bloquear_termostato", S.lock ? "on" : "off");
   for (const a of AUTOS) put(a, S.autos[a] ? "on" : "off");
   for (const [id, t] of Object.entries(S.therm)) {
-    if (S.reloading === id) { put(id, "unavailable", {}); continue; }
     const active = (t.mode === "heat" && S.mode === "calor") || (t.mode === "cool" && S.mode === "frio");
     put(id, active ? t.mode : "off", {
       hvac_modes: [t.mode, "off"], min_temp: t.min, max_temp: t.max, target_temp_step: 0.1,
@@ -277,7 +274,7 @@ function log(kind, text) {
   const li = document.createElement("li");
   const t = new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   li.innerHTML = `<time>${t}</time><span><span class="${kind}"></span> <span class="txt"></span></span>`;
-  li.querySelector("." + kind).textContent = kind === "svc" ? "acción" : kind === "flow" ? "opciones" : "info";
+  li.querySelector("." + kind).textContent = kind === "svc" ? "acción" : "info";
   li.querySelector(".txt").textContent = text;
   logEl.querySelector(".empty")?.remove();
   logEl.prepend(li);
@@ -297,57 +294,20 @@ function callService(domain, service, data = {}) {
     else if (domain === "climate") {
       if (id === "climate.bomba_de_calor_aire_agua_2") { if (service === "set_temperature") S.water = data.temperature; continue; }
       const t = S.therm[id];
+      // Como generic_thermostat: un objetivo igual al de un preset marca ese preset, si no
+      // queda en "none" (Manual); al volver a "none" recupera el ultimo objetivo manual.
       if (service === "set_temperature") {
         t.target = data.temperature;
-        // Como generic_thermostat: si la temperatura no es la de ningun preset, queda en "none"
         t.preset = Object.keys(t.presets).find((p) => t.presets[p] === data.temperature) || "none";
-      } else if (service === "set_preset_mode") {
+      } else if (service === "set_preset_mode" && data.preset_mode !== t.preset) {
+        if (t.preset === "none") t.manual = t.target;
         t.preset = data.preset_mode;
-        if (t.presets[t.preset] != null) t.target = t.presets[t.preset];
+        t.target = t.preset === "none" ? t.manual ?? t.target : t.presets[t.preset];
       }
     }
   }
   render();
   return Promise.resolve();
-}
-
-/* --- Options flow del generic_thermostat (paso init y paso presets) --- */
-const flows = {};
-let flowSeq = 0;
-const entryOf = (entry) => entry.replace(/^entry:/, "");
-function callApi(method, path, body) {
-  if (method === "POST" && path === "config/config_entries/options/flow") {
-    const id = "f" + ++flowSeq;
-    flows[id] = entryOf(body.handler);
-    log("flow", `abre las opciones de ${flows[id]}`);
-    return Promise.resolve({ type: "form", flow_id: id, step_id: "init", data_schema: [
-      { name: "ac_mode", description: { suggested_value: flows[id].endsWith("frio") } },
-      { name: "heater", description: { suggested_value: "switch.socket_garaje_aerotermia_bomba" } },
-      { name: "min_cycle_duration", description: { suggested_value: { hours: 0, minutes: 10, seconds: 0 } } },
-    ] });
-  }
-  const m = path.match(/^config\/config_entries\/options\/flow\/(f\d+)$/);
-  if (m && method === "DELETE") { delete flows[m[1]]; return Promise.resolve({}); }
-  if (m && method === "POST") {
-    const ent = flows[m[1]];
-    const t = S.therm[ent];
-    if (!body.away_temp && !body.comfort_temp && !body.eco_temp) {
-      return Promise.resolve({ type: "form", flow_id: m[1], step_id: "presets", data_schema:
-        Object.entries(t.presets).map(([k, v]) => ({ name: `${k}_temp`, description: { suggested_value: v } })) });
-    }
-    const changed = Object.keys(t.presets).filter((k) => body[`${k}_temp`] !== t.presets[k]);
-    for (const k of Object.keys(t.presets)) t.presets[k] = body[`${k}_temp`];
-    delete flows[m[1]];
-    log("flow", `guarda ${changed.map((k) => `${k}_temp = ${t.presets[k]}`).join(", ") || "sin cambios"} y recarga el termostato`);
-    // HA recarga el termostato: un instante sin disponible, despues vuelve con su preset y su objetivo
-    S.reloading = ent; render();
-    return new Promise((res) => setTimeout(() => { S.reloading = null; render(); res({ type: "create_entry" }); }, 450));
-  }
-  return Promise.reject(new Error("no simulado: " + path));
-}
-function callWS(msg) {
-  if (msg.type === "config/entity_registry/get") return Promise.resolve({ entity_id: msg.entity_id, config_entry_id: "entry:" + msg.entity_id });
-  return Promise.reject(new Error("no simulado: " + msg.type));
 }
 
 /* --- Montaje --- */
@@ -361,7 +321,7 @@ const houseOut = document.getElementById("house-out");
 const presetsNow = document.getElementById("presets-now");
 const fmt = (n) => String(Math.round(n * 100) / 100).replace(".", ",");
 function render() {
-  card.hass = { states: buildStates(), callService, callApi, callWS, user: { is_admin: true }, language: "es" };
+  card.hass = { states: buildStates(), callService, user: { is_admin: true }, language: "es" };
   house.value = S.house;
   houseOut.textContent = fmt(S.house) + " °C";
   for (const [on, off, v] of [["lg-on", "lg-off", S.lgActive], ["pump-on", "pump-off", S.pumpOn]]) {

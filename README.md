@@ -22,9 +22,8 @@ La inteligencia (conmutación calor/frío, presets, modos automáticos, segurida
   iconos del motor, la bomba, los modos automáticos y el preset puesto. Al tocarla se despliega:
   objetivo de agua (+/−), impulsión, bomba, **presets** y, en calor y en frío, el interruptor
   de **modos automáticos**. Abajo, la barra de modos (off / frío / calor / auto).
-- **Ajustar la temperatura con un preset marcado** la guarda como temperatura de ese preset y
-  el preset sigue marcado (necesita usuario administrador; si no, es un cambio normal y el preset
-  pasa a `none`).
+- **Mover el dial** pone ese objetivo tal cual: si coincide con la temperatura de un preset se
+  marca ese preset; si no, **Manual**. Las temperaturas de los presets no se tocan desde el dial.
 
 **[▶ Probar la demo](https://serweck.github.io/aerothermal-temperature-control/)**: la tarjeta real sobre una
 casa simulada, en el navegador y sin Home Assistant. Puedes cambiar de modo, desplegar el
@@ -71,6 +70,7 @@ Solo cambian el **preset** del termostato activo, y nunca con el candado puesto
 - **E · Modos automáticos (calor):** eco desde `input_datetime.aerotermia_hora_eco` (23:00) y
   comfort desde el arranque que calcula `binary_sensor.aerotermia_arranque_confort`, para tener
   la casa a la temperatura de confort a `input_datetime.aerotermia_hora_confort` (08:30).
+  Con el termostato en **Manual** el horario no actúa hasta que se elija un preset.
 - **F · Aprender ritmo de calentamiento:** mide cada subida de eco a comfort y ajusta
   `input_number.aerotermia_ritmo_calentamiento` (°C/h), que usa el cálculo del arranque.
 - **G · Recordar temperatura de confort:** copia la temperatura del preset comfort a un
@@ -167,7 +167,7 @@ También hay **editor visual** para los entity_id principales (presets y `show_m
 | `lock_entity` | — | `input_boolean` que bloquea los modos automáticos; se muestra como candado arriba a la derecha. |
 | `auto_mode_automations` | — | Automatizaciones de los modos automáticos. En calor y en frío, el desplegable del motor muestra un interruptor que las enciende o apaga todas a la vez. |
 | `name` | — | Título de la tarjeta. |
-| `presets` | — | Lista `{label, preset[, icon]}`, en el desplegable del motor. Por defecto Fuera/Confort/Eco/En Casa/Dormir; solo se muestran los que el termostato activo tiene en `preset_modes`. El icono también marca el preset puesto en la línea plegada. |
+| `presets` | — | Lista `{label, preset[, icon]}`, en el desplegable del motor. Por defecto Fuera/Confort/Eco/En Casa/Dormir; solo se muestran los que el termostato activo tiene en `preset_modes`. Si la lista no incluye `preset: none`, se añade **Manual** al final. El icono también marca el preset puesto en la línea plegada. |
 | `show_modes` | — | Subconjunto de `off`, `cool`, `heat`, `auto`. |
 
 ---
@@ -188,9 +188,10 @@ Código en `src/` (LitElement + TypeScript). El editor visual está en `src/edit
 
 ## Notas
 
-- La temperatura de cada preset vive en las opciones del `generic_thermostat`. Se cambia desde
-  la tarjeta (ajustando con el preset marcado) o en Ajustes → Ayudantes → el termostato →
-  Opciones. No hace falta reiniciar: el termostato se recarga y conserva su preset.
+- La temperatura de cada preset vive en las opciones del `generic_thermostat` y se cambia en
+  Ajustes → Ayudantes → el termostato → Opciones. El termostato se recarga y conserva el preset
+  **con el objetivo viejo**: si ese preset estaba puesto, elige otro y vuelve a él para aplicar
+  el valor nuevo.
 - Suelo radiante en frío: vigila la **condensación** (la temperatura de impulsión del agua,
   que fija el LG, no debe bajar del punto de rocío).
 - `min_cycle_duration: 10 min` protege la bomba de ciclos cortos.
